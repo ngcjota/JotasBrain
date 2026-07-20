@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.jotasbrain.prospeccao",
     "productName": "Jota's Brain",
+    "publish": null,
     "files": [
       "index.html",
       "main.js",
