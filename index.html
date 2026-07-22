@@ -2572,21 +2572,74 @@ function refreshQuotaUI(){
   const bar=$('q-bar');if(bar){bar.style.width=pct+'%';bar.style.background=pct<60?'var(--green)':pct<85?'var(--amber)':'var(--red)'}
   const sub=$('q-sub');if(sub)sub.textContent=t('quota_units',{n:used.toLocaleString(State.cfg.lang==='en-US'?'en-US':'pt-BR')});
 }
+let _costAcc=0,_costTimer=null;
 function addQuota(u){
+  if(!u)return;
   addKeyUsage(currentKey(),u);
   refreshQuotaUI();
-  const cost=$('q-cost');cost.style.display='';cost.textContent=`+${u.toLocaleString('pt-BR')}`;
-  setTimeout(()=>cost.style.display='none',2000);
+  // Agora contabilizamos chamada a chamada, então o badge "+N" acumula por
+  // um instante em vez de piscar a cada requisição.
+  _costAcc+=u;
+  const cost=$('q-cost');if(!cost)return;
+  cost.style.display='';cost.textContent=`+${_costAcc.toLocaleString('pt-BR')}`;
+  clearTimeout(_costTimer);
+  _costTimer=setTimeout(()=>{cost.style.display='none';_costAcc=0},2000);
 }
 
 /* ══ YOUTUBE API ══ */
 const API='https://www.googleapis.com/youtube/v3';
+
+/* ══ CUSTO REAL POR ENDPOINT ══
+   search.list custa 100 unidades; os demais endpoints de leitura custam 1.
+   Antes, apenas channels/playlistItems/videos eram contabilizados em
+   processBatch() — as chamadas de search (as mais caras de longe) nunca
+   entravam na conta. A barra mostrava centenas enquanto a cota real já
+   tinha queimado milhares. Agora a medição acontece no único ponto por
+   onde toda requisição passa, então nada pode escapar da contagem. */
+const UNIT_COST={search:100,channels:1,playlistItems:1,videos:1};
+
+/* Cache em memória por (endpoint+parâmetros). Repetir a mesma pesquisa,
+   ou mexer só num filtro local, reaproveita a resposta em vez de gastar
+   cota de novo. Vive apenas na sessão — não persiste resultados velhos. */
+const apiCache=new Map();
+const CACHE_MAX=400;
+function cacheKey(endpoint,params){
+  const k=Object.keys(params).sort().map(n=>n+'='+params[n]).join('&');
+  return endpoint+'?'+k;
+}
+function cacheGet(k){
+  if(!apiCache.has(k))return undefined;
+  const v=apiCache.get(k);
+  apiCache.delete(k);apiCache.set(k,v);   // LRU: recém-usado vai pro fim
+  return v;
+}
+function cacheSet(k,v){
+  apiCache.set(k,v);
+  while(apiCache.size>CACHE_MAX)apiCache.delete(apiCache.keys().next().value);
+}
+function clearApiCache(){apiCache.clear()}
+
+/* Requisições idênticas em voo são coalescidas: se dois pontos do código
+   pedirem a mesma coisa ao mesmo tempo, sai uma chamada só. */
+const inFlight=new Map();
+
 async function api(endpoint,params){
+  const ck=cacheKey(endpoint,params);
+  const cached=cacheGet(ck);
+  if(cached!==undefined)return cached;
+  if(inFlight.has(ck))return inFlight.get(ck);
+  const p=apiRaw(endpoint,params).then(j=>{cacheSet(ck,j);return j}).finally(()=>inFlight.delete(ck));
+  inFlight.set(ck,p);
+  return p;
+}
+
+async function apiRaw(endpoint,params){
   let key=currentKey();if(!key)throw Object.assign(new Error('NO_KEY'),{code:'NO_KEY'});
   let attempts=0;const maxAttempts=Math.max(1,State.cfg.keys.length);
   while(true){
     const r=await fetch(`${API}/${endpoint}?`+new URLSearchParams({...params,key}));
-    const j=await r.json();if(r.ok)return j;
+    const j=await r.json();
+    if(r.ok){addQuota(UNIT_COST[endpoint]||1);return j}
     const reason=j?.error?.errors?.[0]?.reason||'';const code=j?.error?.code||r.status;
     const isQuota=reason.toLowerCase().includes('quota')||code===429;attempts++;
     if(isQuota){
@@ -2671,7 +2724,7 @@ async function processBatch(cids,onProg){
   const vdetails=await batchVideos(vids);
   const vBy={};vdetails.forEach(v=>vBy[v.id]=v);
   if(onProg)onProg(0.9);
-  const units=Math.ceil(cids.length/50)+cids.length*1+Math.ceil(vids.length/50);addQuota(units);
+  // A cota já foi contabilizada dentro de api(), chamada a chamada.
   const leads=[];
   for(const ch of channels){
     if(stopFlag)break;
@@ -2715,38 +2768,117 @@ async function runSearch(){
   try{
     const seenDB=new Set(State.leads.map(l=>l.channel_id));
     const collected=new Set();const processedIds=new Set();const allLeads=[];const passedLeads=[];const rejections={};
-    const now=new Date(),windows=[];const stepMonths=3;const maxMonths=36;
+    /* Cada janela de data é uma chamada de search extra (100 unidades) por
+       fonte. 36 meses em passos de 3 davam 12 janelas POR fonte — dezenas de
+       chamadas escondidas depois que o pageToken acabava. Passos de 6 meses
+       em 18 meses dão 3 janelas, e canais parados há mais de 18 meses não
+       interessam a uma busca de leads ativos. */
+    const now=new Date(),windows=[];const stepMonths=6;const maxMonths=18;
     for(let mo=0;mo<maxMonths;mo+=stepMonths){const b=new Date(now);b.setMonth(b.getMonth()-mo);const a=new Date(now);a.setMonth(a.getMonth()-mo-stepMonths);windows.push({publishedBefore:b.toISOString(),publishedAfter:a.toISOString()})}
     const queryVariants=buildQueryVariants(query);
     const relevance=buildRelevance(query);
     const parsedQ=parseQuery(query);
     if(parsedQ.refinements.length)log(t('terms_active',{niche:parsedQ.niche,list:parsedQ.refinements.join(' · ')}),'i');
-    const orders=['relevance','date','viewCount'];
+    /* 'relevance', 'date' e 'viewCount' sobre o MESMO termo devolvem em boa
+       parte os mesmos canais — o topo de um nicho aparece nas três ordens.
+       Com um único nicho, 'relevance' já traz o melhor material, e as outras
+       ordens só entram se a primeira não render o suficiente. Isso sozinho
+       corta ~2/3 das chamadas de search numa pesquisa simples. */
+    const orders=parsedQ.refinements.length?['relevance','viewCount']:['relevance','date','viewCount'];
     const sources=[];
     // Ask YouTube to bias results toward the chosen countries. This narrows
     // the pool at the source instead of fetching then discarding.
     const regions=(filters.countries&&filters.countries.length)?filters.countries:[null];
-    for(const qv of queryVariants)for(const order of orders)for(const rc of regions)sources.push({qv,order,rc,windows:[...windows]});
+    // Ordem externa = 'order': varremos TODOS os termos em 'relevance' antes de
+    // gastar em 'date'/'viewCount'. Como o orçamento costuma acabar antes do
+    // fim da lista, as primeiras chamadas precisam ser as de maior retorno.
+    for(const order of orders)for(const qv of queryVariants)for(const rc of regions)sources.push({qv,order,rc,windows:[...windows]});
     // Strict country + relevance gating rejects a lot more, so the candidate
     // pool must grow or we run dry before reaching maxCh. This trades API
     // quota for precision, which is the intended tradeoff.
     const strict=(filters.countries&&filters.countries.length>0)||parsedQ.refinements.length>0;
     const batchSize=50;
-    const maxRounds=strict?20:8;
-    const targetPool=maxCh*(strict?24:8);
+    const maxRounds=strict?10:6;
+    /* O pool antigo (maxCh*8, ou *24 no estrito) pedia 240 a 720 canais para
+       entregar 30 — ou seja, 5 a 15 páginas de search só para começar, entre
+       500 e 1.500 unidades antes de analisar o primeiro canal. Um multiplicador
+       de 3x (5x no estrito, onde o filtro de país/termos descarta mais) já
+       cobre a taxa de aprovação observada com folga. */
+    const targetPool=Math.min(400,maxCh*(strict?5:3));
+    /* Teto absoluto de search.list por pesquisa. 100 unidades cada:
+       12 chamadas = 1.200 unidades no pior caso, contra os ~5.000+ de antes. */
+    const searchBudget=Math.min(strict?18:12,Math.max(4,Math.ceil(targetPool/45)));
+    let searchCalls=0;
     SLEEP=10;CONCURRENCY=8;VIDS_PER_CH=20;
     let round=0,srcIdx=0,exhausted=false;
-    async function collectFrom(src,want){let added=0,guard=0;const guardMax=strict?20:8;while(added<want&&!stopFlag&&guard<guardMax){guard++;try{const p={part:'snippet',q:src.qv,type:'video',maxResults:50,order:src.order};if(src.rc)p.regionCode=src.rc;if(src._pt)p.pageToken=src._pt;const wIdx=src._w||0;if(wIdx>0&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);const r=await api('search',p);(r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++;}});if(r.nextPageToken){src._pt=r.nextPageToken}else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length){src._done=true;break;}}await sleep(SLEEP)}catch(e){if(e.code===429||(e.reason||'').includes('quota'))throw e;src._done=true;break;}}return added}
-    async function collectNextBatch(){let need=batchSize;while(need>0&&srcIdx<sources.length&&!stopFlag){const src=sources[srcIdx];if(src._done){srcIdx++;continue;}const got=await collectFrom(src,need);need-=got;if(src._done)srcIdx++;if(collected.size>=targetPool)break}const fresh=[...collected].filter(c=>!processedIds.has(c));const batch=fresh.slice(0,batchSize);batch.forEach(c=>processedIds.add(c));return batch}
+    /* ── Coleta de candidatos ──
+       Cada chamada de search.list custa 100 unidades — é aqui que a cota
+       ia embora. Três correções:
+
+       1. Uma página por passada. Antes o laço continuava paginando dentro
+          da mesma fonte até `guardMax` (8, ou 20 no modo estrito) mesmo
+          depois de já ter os candidatos pedidos. Agora devolve o controle
+          assim que a cota do lote é atingida, e a próxima rodada retoma
+          exatamente de onde parou (o pageToken fica guardado em src._pt).
+
+       2. Teto duro de chamadas por pesquisa. searchBudget limita o total
+          de search.list de toda a execução, então nenhuma pesquisa pode
+          escapar e drenar a cota do dia, independente dos filtros.
+
+       3. Só pagina quando falta gente. Se o pool já tem candidatos não
+          processados suficientes para o próximo lote, nenhuma chamada de
+          search é feita — reaproveita o que já foi pago. */
+    async function collectFrom(src,want){
+      let added=0;
+      if(searchCalls>=searchBudget)return 0;
+      if(stopFlag)return 0;
+      try{
+        const p={part:'snippet',q:src.qv,type:'video',maxResults:50,order:src.order};
+        if(src.rc)p.regionCode=src.rc;
+        if(src._pt)p.pageToken=src._pt;
+        const wIdx=src._w||0;
+        if(wIdx>0&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);
+        searchCalls++;
+        const r=await api('search',p);
+        (r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++}});
+        if(r.nextPageToken){src._pt=r.nextPageToken}
+        else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length)src._done=true}
+        if(added>0)await sleep(SLEEP);
+      }catch(e){
+        if(e.code===429||(e.reason||'').includes('quota'))throw e;
+        src._done=true;
+      }
+      return added;
+    }
+    async function collectNextBatch(){
+      // Nada a fazer se já temos o suficiente em mãos ou se o alvo foi batido.
+      let fresh=[...collected].filter(c=>!processedIds.has(c));
+      while(fresh.length<batchSize&&srcIdx<sources.length&&!stopFlag
+            &&searchCalls<searchBudget&&collected.size<targetPool){
+        const src=sources[srcIdx];
+        if(src._done){srcIdx++;continue}
+        await collectFrom(src,batchSize-fresh.length);
+        if(src._done)srcIdx++;
+        fresh=[...collected].filter(c=>!processedIds.has(c));
+      }
+      const batch=fresh.slice(0,batchSize);
+      batch.forEach(c=>processedIds.add(c));
+      return batch;
+    }
     setStatus(t('collecting_channels'));let nextBatch=await collectNextBatch();
     while(nextBatch.length>0&&round<maxRounds&&!stopFlag){
       round++;const batch=nextBatch;
       log(t('round_processing',{r:round,n:batch.length,pool:collected.size}),'i');
       setStatus(t('round_status',{r:round,n:batch.length}));
       const baseProg=Math.min(90,(passedLeads.length/maxCh)*90);
-      const [leads]=await Promise.all([processBatch(batch,(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,8)))),(async()=>{if(passedLeads.length<maxCh)nextBatch=await collectNextBatch();else nextBatch=[]})()]);
+      /* O prefetch em paralelo era disparado toda rodada, inclusive na que
+         atingia maxCh e saía do laço logo em seguida — essas páginas de
+         search eram pagas e jogadas fora. Agora o lote é processado
+         primeiro; só buscamos mais candidatos se de fato ainda faltarem. */
+      const leads=await processBatch(batch,(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,6))));
       allLeads.push(...leads);
       let newPassed=0;for(const l of leads){const reason=relevanceCheck(l,relevance)||rejectReason(l,filters,seenDB);if(reason===null){passedLeads.push(l);newPassed++}else{rejections[reason]=(rejections[reason]||0)+1}}
+      nextBatch=(passedLeads.length<maxCh&&round<maxRounds)?await collectNextBatch():[];
       const withC=leads.filter(leadHasContact).length;
       log(t('passed_line',{n:newPassed,withC,total:leads.length,passed:passedLeads.length,max:maxCh}),'k');
       setProg(Math.min(95,(passedLeads.length/maxCh)*95));
