@@ -2798,16 +2798,28 @@ async function runSearch(){
     // quota for precision, which is the intended tradeoff.
     const strict=(filters.countries&&filters.countries.length>0)||parsedQ.refinements.length>0;
     const batchSize=50;
-    const maxRounds=strict?10:6;
-    /* O pool antigo (maxCh*8, ou *24 no estrito) pedia 240 a 720 canais para
-       entregar 30 — ou seja, 5 a 15 páginas de search só para começar, entre
-       500 e 1.500 unidades antes de analisar o primeiro canal. Um multiplicador
-       de 3x (5x no estrito, onde o filtro de país/termos descarta mais) já
-       cobre a taxa de aprovação observada com folga. */
-    const targetPool=Math.min(400,maxCh*(strict?5:3));
-    /* Teto absoluto de search.list por pesquisa. 100 unidades cada:
-       12 chamadas = 1.200 unidades no pior caso, contra os ~5.000+ de antes. */
-    const searchBudget=Math.min(strict?18:12,Math.max(4,Math.ceil(targetPool/45)));
+    /* A meta é maxCh canais VÁLIDOS. Como parte dos candidatos é descartada
+       pelos filtros (contato, país, nicho), precisamos coletar bem mais do que
+       maxCh de candidatos brutos. O teto do pool e o número de rodadas escalam
+       com a meta e com o rigor dos filtros, e a coleta continua puxando páginas
+       e variações de subnicho até bater maxCh ou esgotar as fontes.
+
+       Estimativa de aproveitamento (candidato bruto → lead válido):
+         ~30% sem filtros extras, ~12% no modo estrito (país/subnichos).
+       Coletamos com folga sobre essa taxa para não parar cedo, mas a coleta
+       é preguiçosa: só pagina quando ainda faltam leads. Se a taxa real for
+       melhor que a estimada, batemos a meta antes e paramos — sem desperdício. */
+    /* Estimativa CONSERVADORA de aproveitamento para dimensionar o pool.
+       Se a taxa real for melhor, a coleta é preguiçosa e para assim que bate
+       maxCh — a folga não custa cota. Se for pior, precisamos ter espaço para
+       continuar. Por isso estimamos baixo de propósito. */
+    const passRate=strict?0.10:0.18;
+    const targetPool=Math.min(600,Math.ceil(maxCh/passRate*1.4));
+    const maxRounds=Math.max(8,Math.ceil(targetPool/batchSize)+4);
+    /* Teto de segurança de chamadas search.list (100 unid. cada). Largo o
+       bastante para alcançar a meta mesmo com muita sobreposição, mas ainda
+       protegendo a cota diária. Cada chamada rende até ~50 candidatos. */
+    const searchBudget=Math.min(strict?45:32,Math.max(10,Math.ceil(targetPool/22)));
     let searchCalls=0;
     SLEEP=10;CONCURRENCY=8;VIDS_PER_CH=20;
     let round=0,srcIdx=0,exhausted=false;
@@ -2843,7 +2855,12 @@ async function runSearch(){
         (r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++}});
         if(r.nextPageToken){src._pt=r.nextPageToken}
         else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length)src._done=true}
-        if(added>0)await sleep(SLEEP);
+        /* Se uma página só trouxe canais repetidos, essa fonte está saturada.
+           Após 2 páginas seguidas sem novidade, encerramos a fonte para que as
+           outras variações (subnichos, ordens, países) sejam exploradas — é o
+           que garante alcançar a meta em vez de girar em falso numa fonte só. */
+        if(added===0){src._empty=(src._empty||0)+1;if(src._empty>=2)src._done=true}
+        else{src._empty=0;await sleep(SLEEP)}
       }catch(e){
         if(e.code===429||(e.reason||'').includes('quota'))throw e;
         src._done=true;
@@ -2851,7 +2868,13 @@ async function runSearch(){
       return added;
     }
     async function collectNextBatch(){
-      // Nada a fazer se já temos o suficiente em mãos ou se o alvo foi batido.
+      /* Puxa candidatos novos (ainda não processados) suficientes para o
+         próximo lote. Continua paginando pelas fontes — subnichos, ordens e
+         janelas de data — enquanto houver fonte viável, dentro do teto de
+         segurança. Só para quando: não há mais fonte, o orçamento de search
+         acabou, ou o pool bateu o teto de proteção. A decisão de "já temos
+         leads suficientes?" fica no laço externo, que simplesmente não chama
+         esta função quando passedLeads>=maxCh. */
       let fresh=[...collected].filter(c=>!processedIds.has(c));
       while(fresh.length<batchSize&&srcIdx<sources.length&&!stopFlag
             &&searchCalls<searchBudget&&collected.size<targetPool){
@@ -2865,8 +2888,14 @@ async function runSearch(){
       batch.forEach(c=>processedIds.add(c));
       return batch;
     }
+    // Fontes ainda utilizáveis: existe fonte não esgotada, há orçamento de
+    // search e o pool não estourou o teto. Usado para decidir se vale a pena
+    // continuar buscando quando ainda faltam leads.
+    function sourcesLeft(){
+      return srcIdx<sources.length&&searchCalls<searchBudget&&collected.size<targetPool;
+    }
     setStatus(t('collecting_channels'));let nextBatch=await collectNextBatch();
-    while(nextBatch.length>0&&round<maxRounds&&!stopFlag){
+    while(nextBatch.length>0&&!stopFlag){
       round++;const batch=nextBatch;
       log(t('round_processing',{r:round,n:batch.length,pool:collected.size}),'i');
       setStatus(t('round_status',{r:round,n:batch.length}));
@@ -2878,11 +2907,24 @@ async function runSearch(){
       const leads=await processBatch(batch,(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,6))));
       allLeads.push(...leads);
       let newPassed=0;for(const l of leads){const reason=relevanceCheck(l,relevance)||rejectReason(l,filters,seenDB);if(reason===null){passedLeads.push(l);newPassed++}else{rejections[reason]=(rejections[reason]||0)+1}}
-      nextBatch=(passedLeads.length<maxCh&&round<maxRounds)?await collectNextBatch():[];
       const withC=leads.filter(leadHasContact).length;
       log(t('passed_line',{n:newPassed,withC,total:leads.length,passed:passedLeads.length,max:maxCh}),'k');
       setProg(Math.min(95,(passedLeads.length/maxCh)*95));
-      if(passedLeads.length>=maxCh)break;if(nextBatch.length===0){exhausted=true;break}
+      // Meta atingida → paramos (comportamento eficiente de cota, mantido).
+      if(passedLeads.length>=maxCh)break;
+      // Ainda faltam leads: continuamos enquanto houver fonte utilizável OU
+      // ainda existam candidatos coletados à espera de processamento. Só
+      // declaramos "esgotado" quando não há mais NADA a tentar. O limite de
+      // rodadas é apenas uma trava de segurança bem folgada.
+      if(round>=maxRounds){exhausted=true;break}
+      nextBatch=await collectNextBatch();
+      if(nextBatch.length===0){
+        const pending=[...collected].filter(c=>!processedIds.has(c)).length;
+        if(!sourcesLeft()&&pending===0){exhausted=true;break}
+        // Sem lote agora mas ainda há fontes: tenta forçar mais coleta uma vez.
+        if(sourcesLeft()){nextBatch=await collectNextBatch();}
+        if(nextBatch.length===0){exhausted=true;break}
+      }
     }
     const dedup=new Set();const uniquePassed=passedLeads.filter(l=>{if(dedup.has(l.channel_id))return false;dedup.add(l.channel_id);return true});
     uniquePassed.sort((a,b)=>b.score-a.score);const final=uniquePassed.slice(0,maxCh);
