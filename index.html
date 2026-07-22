@@ -287,6 +287,21 @@ select.inp{
 .search-mini svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--ink3)}
 .search-mini input{padding-left:32px}
 .pipeline-count{font-size:12px;color:var(--ink3);margin-bottom:10px}
+.pipeline-count-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin:18px 0 4px;flex-wrap:wrap}
+.page-btn{
+  min-width:32px;height:32px;padding:0 10px;border-radius:var(--r-md);
+  border:1px solid var(--divider);background:var(--surface);color:var(--ink2);
+  font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;
+  display:inline-flex;align-items:center;justify-content:center;transition:all .12s;
+}
+.page-btn:hover:not(:disabled):not(.active){background:var(--surface2);border-color:var(--divider2);color:var(--ink)}
+.page-btn.active{background:var(--accent);border-color:transparent;color:var(--accent-text);cursor:default}
+.page-btn:disabled{opacity:.35;cursor:not-allowed}
+.page-btn.page-nav svg{width:14px;height:14px}
+.page-ellipsis{color:var(--ink4);font-size:12px;padding:0 2px;user-select:none}
 
 /* Table */
 .data-table-wrap{background:var(--surface);border:1px solid var(--divider);border-radius:var(--r-xl);overflow:hidden}
@@ -439,6 +454,10 @@ tbody tr:hover td{background:var(--surface2)}
 
 /* locked */
 body.locked #main{display:none!important}
+body.locked #nav{display:none!important}
+body.locked{overflow:hidden}
+#auth-overlay{z-index:9999}
+#auth-overlay .modal{pointer-events:auto}
 
 /* ══ THEMES ══
    Every theme owns a COMPLETE palette — background, secondary background,
@@ -684,6 +703,315 @@ body.locked #main{display:none!important}
 .stage-select:active{transform:scale(.96)}
 .stage-select option{background:var(--surface);color:var(--ink);font-weight:600}
 
+/* ══ ESQUECEU A SENHA ══ */
+.forgot-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--divider)}
+.forgot-link{
+  display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+  background:transparent;border:none;cursor:pointer;font-family:inherit;
+  font-size:12px;font-weight:500;color:var(--ink3);padding:6px;border-radius:var(--r-sm);
+  transition:color .12s,background .12s;
+}
+.forgot-link:hover{color:var(--green);background:var(--surface2)}
+.forgot-link svg{width:13px;height:13px;flex-shrink:0}
+
+.forgot-panel{
+  display:none;margin-top:12px;padding:14px;text-align:left;
+  background:var(--surface2);border:1px solid var(--divider);border-radius:var(--r-lg);
+}
+.forgot-panel.open{display:block;animation:forgotIn .18s ease}
+@keyframes forgotIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.forgot-warn{
+  font-size:11.5px;line-height:1.5;color:var(--ink2);
+  background:color-mix(in srgb, var(--amber) 10%, transparent);border-left:2.5px solid var(--amber);
+  padding:9px 11px;border-radius:var(--r-sm);margin-bottom:14px;
+}
+.forgot-warn b{color:var(--amber);font-weight:600}
+
+.forgot-title{
+  font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:1.2px;
+  text-transform:uppercase;margin-bottom:8px;
+}
+.forgot-steps{margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:7px}
+.forgot-steps li{font-size:12px;line-height:1.5;color:var(--ink2)}
+.forgot-steps li::marker{color:var(--green);font-weight:700}
+.forgot-steps b{color:var(--ink);font-weight:600}
+.forgot-steps code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+  background:var(--surface);border:1px solid var(--divider2);
+  padding:1px 5px;border-radius:4px;color:var(--green);
+}
+.forgot-note{font-size:11.5px;color:var(--ink3);line-height:1.45;margin-bottom:10px}
+.forgot-btns{display:flex;flex-direction:column;gap:7px}
+.forgot-btns .btn{width:100%;justify-content:center;gap:7px}
+.forgot-btns .btn svg{width:13px;height:13px}
+.btn-danger{border-color:color-mix(in srgb, var(--red) 40%, transparent);color:var(--red)}
+.btn-danger:hover{background:color-mix(in srgb, var(--red) 12%, transparent);border-color:var(--red)}
+#forgot-msg{margin-top:9px;font-size:11.5px;text-align:center}
+
+/* ══ FILTROS AVANÇADOS ══ */
+#btn-advfilter{display:inline-flex;align-items:center;gap:6px}
+#btn-advfilter.active{background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent)}
+.filt-badge{
+  display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
+  padding:0 4px;border-radius:8px;background:var(--accent);color:var(--accent-text);
+  font-size:9.5px;font-weight:700;line-height:1;
+}
+.adv-filters{
+  display:none;margin:12px 0 0;padding:16px 18px;
+  background:var(--surface);border:1px solid var(--divider);border-radius:var(--r-xl);
+  box-shadow:var(--shadow-xs);
+}
+.adv-filters.open{display:block;animation:forgotIn .18s ease}
+.af-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.af-field{min-width:0}
+.af-chips{display:flex;flex-wrap:wrap;gap:6px}
+.af-chips .chip{padding:6px 11px}
+.af-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--divider);flex-wrap:wrap;
+}
+
+/* ══ UNDO TOAST ══ */
+.undo-toast{
+  position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);
+  display:flex;align-items:center;gap:12px;
+  background:var(--surface);border:1px solid var(--divider2);
+  border-radius:var(--r-lg);padding:11px 14px;box-shadow:var(--shadow-md);
+  z-index:500;opacity:0;pointer-events:none;
+  transition:opacity .2s ease,transform .2s ease;
+  max-width:min(460px,calc(100vw - 32px));overflow:hidden;
+}
+.undo-toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.undo-msg{font-size:12.5px;color:var(--ink);flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.undo-btn{
+  background:transparent;border:none;cursor:pointer;font-family:inherit;
+  font-size:12.5px;font-weight:700;color:var(--accent);
+  padding:4px 8px;border-radius:var(--r-sm);flex-shrink:0;transition:background .12s;
+}
+.undo-btn:hover{background:var(--accent-dim)}
+.undo-x{
+  background:transparent;border:none;cursor:pointer;color:var(--ink4);
+  font-size:13px;line-height:1;padding:4px 6px;border-radius:var(--r-sm);flex-shrink:0;
+}
+.undo-x:hover{color:var(--ink);background:var(--surface2)}
+.undo-bar{
+  position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:var(--accent);transform-origin:left;
+  animation:undoBar linear forwards;
+}
+@keyframes undoBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* ══ TEMPLATES ══ */
+.tpl-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.tpl-layout{grid-template-columns:1fr}}
+.tpl-side{
+  background:var(--surface);border:1px solid var(--divider);border-radius:var(--r-xl);
+  padding:16px;box-shadow:var(--shadow-xs);position:sticky;top:0;
+}
+@media(max-width:900px){.tpl-side{position:static}}
+.tpl-side-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.tpl-list{display:flex;flex-direction:column;gap:5px;max-height:52vh;overflow-y:auto}
+.tpl-item{
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  padding:9px 11px;border-radius:var(--r-md);border:1px solid transparent;
+  background:var(--surface2);cursor:pointer;font-family:inherit;text-align:left;
+  width:100%;transition:all .12s;
+}
+.tpl-item:hover{border-color:var(--divider2)}
+.tpl-item.active{background:var(--accent-dim);border-color:var(--accent-border)}
+.tpl-item-title{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.3}
+.tpl-item.active .tpl-item-title{color:var(--accent)}
+.tpl-item-cat{
+  font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:2px 6px;border-radius:5px;background:var(--divider);color:var(--ink3);
+}
+.tc-frio{background:color-mix(in srgb,var(--blue) 16%,transparent);color:var(--blue)}
+.tc-morno{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+.tc-follow1,.tc-follow2{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+.tc-interesse{background:var(--green-dim);color:var(--green)}
+.tc-encerrar{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+
+.tpl-ctx-row{display:flex;gap:12px;flex-wrap:wrap}
+.tpl-edit-head{display:flex;gap:10px;flex-wrap:wrap}
+.tpl-title-inp{flex:1;min-width:200px;font-weight:600}
+.tpl-body-inp{
+  resize:vertical;min-height:180px;line-height:1.6;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;
+}
+.tpl-vars{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tpl-vars-label{font-size:11px;font-weight:600;color:var(--ink3);margin-right:2px}
+.tpl-var{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  background:var(--surface2);border:1px solid var(--divider);color:var(--accent);
+  padding:3px 7px;border-radius:5px;cursor:pointer;transition:.12s;
+}
+.tpl-var:hover{background:var(--accent-dim);border-color:var(--accent-border)}
+.tpl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--divider)}
+
+.tpl-preview-card{background:var(--surface2)}
+.tpl-prev-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
+.tpl-charcount{font-size:10.5px;font-weight:600;color:var(--ink3);font-variant-numeric:tabular-nums}
+.tpl-charcount.over{color:var(--red)}
+.tpl-prev-subject{
+  font-size:13px;color:var(--ink);padding:9px 12px;margin-bottom:10px;
+  background:var(--surface);border:1px solid var(--divider);border-radius:var(--r-md);
+}
+.tpl-prev-lbl{font-size:10px;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.6px;margin-right:6px}
+.tpl-prev-body{
+  white-space:pre-wrap;word-wrap:break-word;font-size:13px;line-height:1.65;color:var(--ink2);
+  background:var(--surface);border:1px solid var(--divider);border-radius:var(--r-md);
+  padding:14px;margin:0;min-height:120px;max-height:400px;overflow-y:auto;
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;
+}
+.tpl-prev-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tpl-prev-actions .btn{display:inline-flex;align-items:center;gap:6px}
+
+
+/* ══ AVISO DE ARMAZENAMENTO ══ */
+.storage-alert{
+  position:fixed;top:0;left:0;right:0;z-index:10000;
+  display:flex;align-items:center;gap:12px;
+  padding:11px 16px;background:var(--red);color:#fff;
+  font-size:12.5px;font-weight:500;
+  transform:translateY(-100%);transition:transform .22s ease;
+  box-shadow:0 2px 12px rgba(0,0,0,.25);
+}
+.storage-alert.show{transform:translateY(0)}
+.storage-alert .sa-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.22);font-weight:800;font-size:11px;
+}
+.storage-alert .sa-msg{flex:1;min-width:0;line-height:1.4}
+.storage-alert .sa-btn{
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);
+  color:#fff;font-family:inherit;font-size:11.5px;font-weight:600;
+  padding:5px 11px;border-radius:var(--r-sm);cursor:pointer;flex-shrink:0;
+  transition:background .12s;
+}
+.storage-alert .sa-btn:hover{background:rgba(255,255,255,.3)}
+.storage-alert .sa-x{
+  background:transparent;border:none;color:#fff;opacity:.75;
+  font-size:19px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0;
+}
+.storage-alert .sa-x:hover{opacity:1}
+
+
+/* ══ TEMPLATES — preview preenchido ══ */
+.tpl-prev-hint{
+  display:flex;align-items:center;gap:7px;
+  font-size:11.5px;font-weight:500;color:var(--ink3);
+  padding:8px 11px;margin-bottom:10px;border-radius:var(--r-md);
+  background:var(--surface);border:1px dashed var(--divider2);
+}
+.tpl-prev-hint::before{content:'○';font-size:10px;opacity:.7}
+.tpl-prev-hint.filled{
+  color:var(--green);border-style:solid;
+  border-color:var(--green-border);background:var(--green-dim);
+}
+.tpl-prev-hint.filled::before{content:'●';opacity:1}
+
+mark.tpl-fill{
+  background:var(--green-dim);color:var(--green);
+  font-weight:600;padding:1px 3px;border-radius:4px;
+  box-decoration-break:clone;-webkit-box-decoration-break:clone;
+}
+.tpl-unfilled{
+  background:color-mix(in srgb,var(--amber) 16%,transparent);
+  color:var(--amber);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.92em;padding:1px 4px;border-radius:4px;
+}
+
+/* ══ TEMPLATES — editor recolhível ══ */
+.tpl-edit-toggle{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:transparent;border:none;cursor:pointer;font-family:inherit;
+  font-size:12.5px;font-weight:600;color:var(--ink3);
+  padding:2px 0;text-align:left;transition:color .12s;
+}
+.tpl-edit-toggle:hover{color:var(--ink)}
+.tpl-chev{width:14px;height:14px;flex-shrink:0;transition:transform .18s ease}
+.tpl-editor-card.open .tpl-chev{transform:rotate(180deg)}
+.tpl-editor-card.open .tpl-edit-toggle{color:var(--accent);margin-bottom:14px}
+.tpl-edit-body{display:none}
+.tpl-editor-card.open .tpl-edit-body{display:block;animation:forgotIn .18s ease}
+
+
+/* ══ UNDO/REDO DO EDITOR ══ */
+.tpl-hist-group{display:flex;gap:4px;margin-right:4px}
+.btn-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0;width:30px;height:30px;flex-shrink:0;
+}
+.btn-icon svg{width:14px;height:14px}
+.btn-icon:disabled{opacity:.35;cursor:not-allowed}
+.btn-icon:disabled:hover{background:transparent;border-color:var(--divider);color:var(--ink3)}
+
+
+/* ══ DIÁLOGOS DO APP ══ */
+.app-dialog{z-index:9500;backdrop-filter:blur(8px);background:rgba(0,0,0,.55)}
+.dlg-modal{
+  width:400px;max-width:100%;text-align:center;padding:26px 24px 20px;
+  animation:dlgIn .18s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.dlg-icon{
+  width:46px;height:46px;border-radius:14px;margin:0 auto 14px;
+  display:flex;align-items:center;justify-content:center;
+}
+.dlg-icon svg{width:22px;height:22px}
+.dlg-info{background:var(--accent-dim);color:var(--accent)}
+.dlg-warn{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--amber)}
+.dlg-danger,.dlg-error{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.dlg-title{font-size:16.5px;font-weight:700;letter-spacing:-.2px;color:var(--ink);margin-bottom:8px}
+.dlg-body{font-size:13px;line-height:1.6;color:var(--ink3);margin-bottom:4px}
+.dlg-body p{margin:0}
+.dlg-body p.dlg-gap{height:8px}
+.dlg-pre{
+  text-align:left;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;line-height:1.6;color:var(--ink2);
+  background:var(--surface2);border:1px solid var(--divider);border-radius:var(--r-md);
+  padding:11px 13px;margin:12px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;
+}
+.dlg-actions{display:flex;gap:8px;justify-content:center;margin-top:20px}
+.dlg-actions .btn{min-width:96px;justify-content:center}
+.btn-danger-solid{
+  background:var(--red);border-color:transparent;color:#fff;font-weight:600;
+}
+.btn-danger-solid:hover{filter:brightness(1.08)}
+@media(max-width:460px){
+  .dlg-actions{flex-direction:column-reverse}
+  .dlg-actions .btn{width:100%}
+}
+
+
+
+/* ══ RESPONSIVO — SHELL ══
+   #nav had a fixed 220px width with no breakpoint, so on a phone it ate most
+   of the viewport and every view was squeezed into ~90px. It collapses to an
+   icon rail instead of disappearing, so navigation stays reachable. */
+@media(max-width:820px){
+  #nav{width:60px;padding:16px 6px}
+  #nav .brand-text,#nav .navitem span,#nav .nav-foot-label{display:none}
+  #nav .brand{justify-content:center}
+  #nav .navitem{justify-content:center;padding-left:0;padding-right:0}
+  #nav .navitem svg{margin:0}
+  .page-header h1{font-size:22px}
+}
+@media(max-width:560px){
+  #nav{width:52px;padding:12px 4px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .pipeline-toolbar{flex-wrap:wrap}
+  .page-header h1{font-size:20px}
+}
+/* tables must scroll rather than stretch the page on small screens */
+@media(max-width:820px){
+  .data-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .data-table-wrap table{min-width:560px}
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -705,6 +1033,44 @@ body.locked #main{display:none!important}
       <div class="form-field"><label data-i18n="auth_password">Senha</label><input class="inp" id="unlock-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doUnlock()"></div>
       <p class="form-msg" id="unlock-msg" style="color:var(--red)"></p>
       <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="doUnlock()" data-i18n="auth_signin">Entrar</button>
+
+      <!-- ══ ESQUECEU A SENHA ══ -->
+      <div class="forgot-wrap">
+        <button type="button" class="forgot-link" onclick="toggleForgot()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span data-i18n="forgot_link">Esqueceu sua senha?</span>
+        </button>
+
+        <div class="forgot-panel" id="forgot-panel">
+          <div class="forgot-warn" data-i18n="forgot_warn">
+            A senha é guardada como <b>hash SHA-256</b> — não é possível lê-la de volta. O único caminho é apagar o perfil e criar um acesso novo.
+          </div>
+
+          <div class="forgot-title" data-i18n="forgot_how">Como recuperar o acesso</div>
+          <ol class="forgot-steps">
+            <li data-i18n="forgot_s1">Abra o app e aperte <b>F12</b> (ou Ctrl+Shift+I) para abrir o DevTools do navegador.</li>
+            <li data-i18n="forgot_s2">Vá na aba <b>Application</b> → <b>Local Storage</b> → selecione este site.</li>
+            <li data-i18n="forgot_s3">Apague a chave <code>jb_profile</code>. Isso remove nome e senha.</li>
+            <li data-i18n="forgot_s4">Recarregue a página: a tela de <b>Criar acesso</b> vai aparecer de novo.</li>
+            <li data-i18n="forgot_s5">Seus leads e histórico ficam salvos — só o perfil é resetado.</li>
+          </ol>
+
+          <div class="forgot-title" data-i18n="forgot_fast">Atalho</div>
+          <p class="forgot-note" data-i18n="forgot_fast_note">O botão abaixo faz o passo 3 e 4 pra você. Não dá pra desfazer.</p>
+
+          <div class="forgot-btns">
+            <button type="button" class="btn btn-sm" onclick="downloadRecoveryNote()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span data-i18n="forgot_dl">Baixar bloco de notas</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-danger" onclick="resetProfileAccess()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span data-i18n="forgot_reset">Apagar perfil e recomeçar</span>
+            </button>
+          </div>
+          <p class="form-msg" id="forgot-msg"></p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -726,6 +1092,10 @@ body.locked #main{display:none!important}
     <button class="navitem" data-view="pipeline">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span data-i18n="nav_pipeline">Pipeline</span>
+    </button>
+    <button class="navitem" data-view="templates">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      <span data-i18n="nav_templates">Templates</span>
     </button>
     <button class="navitem" data-view="overview">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -787,10 +1157,11 @@ body.locked #main{display:none!important}
       <div class="search-bar-wrap">
         <div class="search-bar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="q" data-i18n-ph="search_placeholder" placeholder="Enter a niche — finance, minecraft, cooking…" onkeydown="handleSearchKey(event)" oninput="onSearchInput(this.value)" autocomplete="off">
+          <input id="q" data-i18n-ph="search_placeholder" placeholder="Nicho, depois refinos — ex: minecraft, smp, hardcore" onkeydown="handleSearchKey(event)" oninput="onSearchInput(this.value)" autocomplete="off">
         </div>
         <div class="autocomplete-list" id="autocomplete-list"></div>
       </div>
+
 
       <div class="run-meta">
         <span class="run-status-text" id="run-status" data-i18n="run_ready">Ready to search</span>
@@ -837,6 +1208,7 @@ body.locked #main{display:none!important}
 
       <div class="card card-pad">
         <div class="section-label" data-i18n="filters_title">Filters</div>
+        <p class="help" style="margin-top:-4px;margin-bottom:10px" data-i18n="filters_quota_note">Using more filters increases YouTube API quota consumption.</p>
         <div style="margin-bottom:12px">
           <label class="field-label" data-i18n="filter_subs">Subscribers</label>
           <div class="inp-row">
@@ -894,6 +1266,10 @@ body.locked #main{display:none!important}
           <span data-i18n="btn_stop">Stop</span>
         </button>
       </div>
+      <button class="btn btn-success btn-full" id="btn-save-sidebar" onclick="saveResults()" style="display:none;margin-top:8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span data-i18n="save_pipeline">Save to Pipeline</span>
+      </button>
     </div>
   </div>
 </section>
@@ -921,9 +1297,62 @@ body.locked #main{display:none!important}
       <option value="avg_views" data-i18n="sort_avgviews">Avg Views</option><option value="created_at" data-i18n="sort_recent">Recent</option>
     </select>
     <button class="btn btn-sm" id="btn-fav" onclick="toggleFavFilter()" data-i18n="fav_only">Favorites only</button>
+    <button class="btn btn-sm" id="btn-advfilter" onclick="toggleAdvFilters()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span data-i18n="adv_filters">Filters</span><span class="filt-badge" id="filt-badge" style="display:none">0</span>
+    </button>
     <button class="btn btn-sm" onclick="exportLeads('csv')" data-i18n="export_csv">Export CSV</button>
     <button class="btn btn-sm" onclick="exportLeads('json')" data-i18n="export_json">Export JSON</button>
+    <button class="btn btn-sm btn-danger" style="margin-left:auto" onclick="clearPipeline()" data-i18n="clear_pipeline">Clear Pipeline</button>
   </div>
+
+  <!-- ══ FILTROS AVANÇADOS ══ -->
+  <div class="adv-filters" id="adv-filters">
+    <div class="af-grid">
+      <div class="af-field">
+        <label class="field-label" data-i18n="af_subs">Inscritos</label>
+        <div class="inp-row">
+          <input class="inp" id="af-subs-min" type="number" min="0" placeholder="min" oninput="renderLeads()">
+          <input class="inp" id="af-subs-max" type="number" min="0" placeholder="max" oninput="renderLeads()">
+        </div>
+      </div>
+      <div class="af-field">
+        <label class="field-label" data-i18n="af_views">Média de views</label>
+        <div class="inp-row">
+          <input class="inp" id="af-views-min" type="number" min="0" placeholder="min" oninput="renderLeads()">
+          <input class="inp" id="af-views-max" type="number" min="0" placeholder="max" oninput="renderLeads()">
+        </div>
+      </div>
+      <div class="af-field">
+        <label class="field-label" data-i18n="af_score">Score mínimo</label>
+        <input class="inp" id="af-score-min" type="number" min="0" max="100" placeholder="0" oninput="renderLeads()">
+      </div>
+      <div class="af-field">
+        <label class="field-label" data-i18n="af_country">País</label>
+        <select class="inp" id="af-country" onchange="renderLeads()"><option value="" data-i18n="af_any">Qualquer</option></select>
+      </div>
+    </div>
+
+    <div class="af-field" style="margin-top:12px">
+      <label class="field-label" data-i18n="af_haschan">Tem contato em</label>
+      <div class="af-chips">
+        <label class="chip" data-c="email"><input type="checkbox" id="af-has-email" onchange="onAfChip(this)"><span class="chip-dot"></span>Email</label>
+        <label class="chip" data-c="discord"><input type="checkbox" id="af-has-discord" onchange="onAfChip(this)"><span class="chip-dot"></span>Discord</label>
+        <label class="chip" data-c="twitter"><input type="checkbox" id="af-has-twitter" onchange="onAfChip(this)"><span class="chip-dot"></span>Twitter</label>
+        <label class="chip" data-c="instagram"><input type="checkbox" id="af-has-instagram" onchange="onAfChip(this)"><span class="chip-dot"></span>Instagram</label>
+      </div>
+      <p class="help" data-i18n="af_haschan_help">Mostra só quem tem pelo menos um dos canais marcados.</p>
+    </div>
+
+    <div class="af-foot">
+      <label class="toggle-row" style="margin:0">
+        <input type="checkbox" id="af-desc" checked onchange="renderLeads()">
+        <span data-i18n="af_desc">Maior primeiro</span>
+      </label>
+      <button class="btn btn-sm" onclick="clearAdvFilters()" data-i18n="af_clear">Limpar filtros</button>
+    </div>
+  </div>
+
   <p class="pipeline-count muted mini" id="l-count"></p>
   <div class="data-table-wrap">
     <table>
@@ -935,9 +1364,131 @@ body.locked #main{display:none!important}
       <tbody id="l-body"></tbody>
     </table>
   </div>
+  <div class="pagination" id="l-pagination"></div>
 </section>
 
 <!-- OVERVIEW -->
+<section class="view" id="v-templates">
+  <div class="page-header">
+    <div class="eyebrow" data-i18n="tpl_eyebrow">Outreach</div>
+    <h1 data-i18n="nav_templates">Templates</h1>
+    <p data-i18n="tpl_sub">Mensagens prontas para prospecção e primeiro contato. Escolha um lead e o texto se preenche sozinho.</p>
+  </div>
+
+  <div class="tpl-layout">
+    <!-- coluna esquerda: lista -->
+    <div class="tpl-side">
+      <div class="tpl-side-head">
+        <span class="section-label" style="margin:0" data-i18n="tpl_library">Biblioteca</span>
+        <button class="btn btn-xs" onclick="newTemplate()" data-i18n="tpl_new">+ Novo</button>
+      </div>
+      <select class="inp" id="tpl-cat-filter" onchange="renderTplList()" style="margin-bottom:8px">
+        <option value="" data-i18n="tpl_all_cats">Todas as categorias</option>
+        <option value="frio" data-i18n="tpl_cat_cold">1º contato — frio</option>
+        <option value="morno" data-i18n="tpl_cat_warm">1º contato — morno</option>
+        <option value="follow1" data-i18n="tpl_cat_f1">Follow-up 1</option>
+        <option value="follow2" data-i18n="tpl_cat_f2">Follow-up 2</option>
+        <option value="interesse" data-i18n="tpl_cat_int">Respondeu interesse</option>
+        <option value="encerrar" data-i18n="tpl_cat_close">Encerramento</option>
+      </select>
+      <div class="tpl-list" id="tpl-list"></div>
+    </div>
+
+    <!-- coluna direita: editor + preview -->
+    <div class="tpl-main">
+      <div class="card card-pad tpl-ctx">
+        <div class="tpl-ctx-row">
+          <div style="flex:1;min-width:180px">
+            <label class="field-label" data-i18n="tpl_pick_lead">Preencher com o lead</label>
+            <select class="inp" id="tpl-lead" onchange="renderTplPreview()"></select>
+          </div>
+          <div style="flex:1;min-width:150px">
+            <label class="field-label" data-i18n="tpl_platform">Plataforma</label>
+            <select class="inp" id="tpl-platform" onchange="renderTplPreview()">
+              <option value="email">Email</option>
+              <option value="discord">Discord</option>
+              <option value="instagram">Instagram DM</option>
+              <option value="twitter">Twitter DM</option>
+            </select>
+          </div>
+        </div>
+        <p class="help" id="tpl-limit-note"></p>
+      </div>
+
+      <div class="card card-pad tpl-preview-card" style="margin-top:14px">
+        <div class="tpl-prev-head">
+          <span class="section-label" style="margin:0" data-i18n="tpl_preview">Preview</span>
+          <span class="tpl-charcount" id="tpl-charcount"></span>
+        </div>
+        <div class="tpl-prev-hint" id="tpl-prev-hint"></div>
+        <div class="tpl-prev-subject" id="tpl-prev-subject"></div>
+        <pre class="tpl-prev-body" id="tpl-prev-body"></pre>
+        <div class="tpl-prev-actions">
+          <button class="btn btn-sm btn-primary" onclick="copyTplBody()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span data-i18n="tpl_copy">Copiar mensagem</span></button>
+          <button class="btn btn-sm" onclick="copyTplAll()" data-i18n="tpl_copy_all">Copiar com assunto</button>
+          <button class="btn btn-sm" id="tpl-mailto" onclick="openTplMailto()" data-i18n="tpl_mailto">Abrir no email</button>
+        </div>
+        <p class="form-msg" id="tpl-copy-msg"></p>
+      </div>
+      <div class="card card-pad tpl-editor-card" id="tpl-editor" style="margin-top:14px">
+        <button class="tpl-edit-toggle" onclick="toggleTplEditor()" id="tpl-edit-toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tpl-chev"><polyline points="6 9 12 15 18 9"/></svg>
+          <span data-i18n="tpl_edit_this">Editar este template</span>
+        </button>
+        <div class="tpl-edit-body" id="tpl-edit-body">
+        <div class="tpl-edit-head">
+          <input class="inp tpl-title-inp" id="tpl-title" placeholder="Nome do template" oninput="onTplEdit()">
+          <select class="inp" id="tpl-cat" style="width:auto" onchange="onTplEdit()">
+            <option value="frio" data-i18n="tpl_cat_cold">1º contato — frio</option>
+            <option value="morno" data-i18n="tpl_cat_warm">1º contato — morno</option>
+            <option value="follow1" data-i18n="tpl_cat_f1">Follow-up 1</option>
+            <option value="follow2" data-i18n="tpl_cat_f2">Follow-up 2</option>
+            <option value="interesse" data-i18n="tpl_cat_int">Respondeu interesse</option>
+            <option value="encerrar" data-i18n="tpl_cat_close">Encerramento</option>
+          </select>
+        </div>
+
+        <label class="field-label" style="margin-top:12px" data-i18n="tpl_subject">Assunto (email)</label>
+        <input class="inp" id="tpl-subject" placeholder="Parceria com {{canal}}" oninput="onTplEdit()">
+
+        <label class="field-label" style="margin-top:12px" data-i18n="tpl_body">Mensagem</label>
+        <textarea class="inp tpl-body-inp" id="tpl-body" rows="9" oninput="onTplEdit()"></textarea>
+
+        <div class="tpl-vars">
+          <span class="tpl-vars-label" data-i18n="tpl_vars">Variáveis:</span>
+          <button class="tpl-var" onclick="insertVar('nome')">{{nome}}</button>
+          <button class="tpl-var" onclick="insertVar('canal')">{{canal}}</button>
+          <button class="tpl-var" onclick="insertVar('inscritos')">{{inscritos}}</button>
+          <button class="tpl-var" onclick="insertVar('views')">{{views}}</button>
+          <button class="tpl-var" onclick="insertVar('pais')">{{pais}}</button>
+          <button class="tpl-var" onclick="insertVar('link')">{{link}}</button>
+          <button class="tpl-var" onclick="insertVar('meunome')">{{meunome}}</button>
+        </div>
+
+        <div class="tpl-actions">
+          <div class="tpl-hist-group">
+            <button class="btn btn-sm btn-icon" id="tpl-undo-btn" onclick="tplUndo()" title="Desfazer (Ctrl+Z)" data-i18n-title="tpl_undo_tip" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            </button>
+            <button class="btn btn-sm btn-icon" id="tpl-redo-btn" onclick="tplRedo()" title="Refazer (Ctrl+Shift+Z)" data-i18n-title="tpl_redo_tip" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+            </button>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="saveTemplate()" data-i18n="tpl_save">Salvar</button>
+          <button class="btn btn-sm" onclick="duplicateTemplate()" data-i18n="tpl_dup">Duplicar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTemplate()" data-i18n="tpl_del">Excluir</button>
+          <button class="btn btn-sm" style="margin-left:auto" onclick="resetTemplates()" data-i18n="tpl_restore">Restaurar padrões</button>
+        </div>
+        <p class="form-msg" id="tpl-msg"></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 <section class="view" id="v-overview">
   <div class="page-header">
     <div class="eyebrow" data-i18n="ov_eyebrow">Analytics</div>
@@ -1168,6 +1719,78 @@ const I18N={
   auth_password:"Senha",
   auth_signin:"Entrar",
   auth_create_pass_msg:"Crie uma senha para proteger este app.",
+  pix_pick_value:"Escolha um valor primeiro.",
+  terms_active:"Nicho: {{niche}} — refinado por: {{list}}",
+  reason_off_niche:"fora do nicho",
+  reason_off_terms:"não bate com os termos",
+  forgot_reset_working:"Apagando dados…",
+  forgot_reset_err_body:"Não foi possível apagar todos os dados. Verifique se o navegador permite armazenamento local e tente novamente.",
+  dlg_ok:"OK",dlg_cancel:"Cancelar",dlg_yes:"Confirmar",
+  dlg_notice:"Aviso",dlg_confirm:"Confirmar",dlg_error:"Algo deu errado",
+  dlg_storage:"Armazenamento cheio",
+  dlg_clear:"Limpar",dlg_erase:"Apagar",dlg_discard:"Descartar",dlg_restore:"Restaurar",
+  tpl_undo_tip:"Desfazer (Ctrl+Z)",
+  tpl_redo_tip:"Refazer (Ctrl+Shift+Z)",
+  tpl_hint_pick:"Escolha um lead acima para preencher o texto automaticamente.",
+  tpl_hint_filled:"Preenchido com os dados de {{name}}.",
+  tpl_edit_this:"Editar este template",
+  storage_full:"O armazenamento do navegador está cheio. Suas últimas alterações podem não ter sido salvas.",
+  storage_fix:"Ver detalhes",
+  storage_help:"Total em uso: {{total}} (o limite costuma ser ~5 MB).\n\nO que fazer:\n  1. Exporte seus leads em CSV ou JSON (aba Pipeline).\n  2. Apague leads antigos que não usa mais.\n  3. Troque a foto de perfil por uma menor, ou remova.\n\nUso por chave:",
+  adv_filters:"Filtros",
+  af_subs:"Inscritos",af_views:"Média de views",af_score:"Score mínimo",af_country:"País",
+  af_any:"Qualquer",af_haschan:"Tem contato em",
+  af_haschan_help:"Mostra só quem tem pelo menos um dos canais marcados.",
+  af_desc:"Maior primeiro",af_clear:"Limpar filtros",
+  undo:"Desfazer",undo_dismiss:"Fechar",
+  undo_deleted:"{{name}} removido do pipeline.",
+  undo_stage:"{{name}} → {{stage}}",
+  undo_cleared:"{{n}} leads removidos.",
+  undo_tpl_deleted:"Template \u201c{{name}}\u201d excluído.",
+  undo_tpl_restored:"Templates padrão restaurados.",
+  nav_templates:"Templates",
+  tpl_eyebrow:"Prospecção",
+  tpl_sub:"Mensagens prontas para prospecção e primeiro contato. Escolha um lead e o texto se preenche sozinho.",
+  tpl_library:"Biblioteca",tpl_new:"+ Novo",tpl_new_name:"Novo template",
+  tpl_all_cats:"Todas as categorias",
+  tpl_cat_cold:"1º contato — frio",tpl_cat_warm:"1º contato — morno",
+  tpl_cat_f1:"Follow-up 1",tpl_cat_f2:"Follow-up 2",
+  tpl_cat_int:"Respondeu interesse",tpl_cat_close:"Encerramento",
+  tpl_pick_lead:"Preencher com o lead",tpl_no_lead:"— sem lead (mostra as variáveis) —",
+  tpl_platform:"Plataforma",
+  tpl_subject:"Assunto (email)",tpl_subject_short:"Assunto",tpl_body:"Mensagem",
+  tpl_vars:"Variáveis:",
+  tpl_save:"Salvar",tpl_dup:"Duplicar",tpl_del:"Excluir",tpl_restore:"Restaurar padrões",
+  tpl_preview:"Preview",tpl_copy:"Copiar mensagem",tpl_copy_all:"Copiar com assunto",
+  tpl_mailto:"Abrir no email",
+  tpl_saved:"Template salvo.",tpl_copied:"Mensagem copiada.",tpl_copied_all:"Assunto + mensagem copiados.",
+  tpl_copy_err:"Não foi possível copiar.",
+  tpl_copy_suffix:"(cópia)",tpl_untitled:"Sem título",
+  tpl_empty:"Nenhum template nessa categoria.",
+  tpl_unsaved:"Você tem alterações não salvas. Trocar de template mesmo assim?",
+  tpl_confirm_restore:"Isso substitui todos os templates pelos padrões. Continuar?",
+  tpl_prev_empty:"(mensagem vazia)",
+  tpl_chars:"caracteres",
+  tpl_limit_note:"Limite dessa plataforma: {{n}} caracteres.",
+  tpl_limit_none:"Email não tem limite prático de tamanho.",
+  tpl_you:"[seu nome]",
+  forgot_link:"Esqueceu sua senha?",
+  forgot_warn:"A senha é guardada como <b>hash SHA-256</b> — não é possível lê-la de volta. O único caminho é apagar o perfil e criar um acesso novo.",
+  forgot_how:"Como recuperar o acesso",
+  forgot_s1:"Abra o app e aperte <b>F12</b> (ou Ctrl+Shift+I) para abrir o DevTools do navegador.",
+  forgot_s2:"Vá na aba <b>Application</b> → <b>Local Storage</b> → selecione este site.",
+  forgot_s3:"Apague a chave <code>jb_profile</code>. Isso remove nome e senha.",
+  forgot_s4:"Recarregue a página: a tela de <b>Criar acesso</b> vai aparecer de novo.",
+  forgot_s5:"Seus leads e histórico ficam salvos — só o perfil é resetado.",
+  forgot_fast:"Atalho",
+  forgot_fast_note:"O botão abaixo faz o passo 3 e 4 pra você. Não dá pra desfazer.",
+  forgot_dl:"Baixar bloco de notas",
+  forgot_reset:"Apagar perfil e recomeçar",
+  forgot_dl_ok:"Arquivo baixado.",
+  forgot_dl_err:"Não foi possível baixar o arquivo.",
+  forgot_confirm:"Isso apaga seu nome e senha de vez. Seus leads e histórico continuam salvos. Quer mesmo continuar?",
+  forgot_reset_ok:"Perfil apagado. Recarregando...",
+  forgot_reset_err:"Não foi possível apagar o perfil.",
   auth_welcome_back:"Bem-vindo(a) de volta, {{name}}.",
   err_enter_name:"Digite seu nome.",
   err_pass_min:"A senha deve ter pelo menos 4 caracteres.",
@@ -1190,7 +1813,7 @@ const I18N={
   disc_sub:"Busque no YouTube criadores que combinam com o seu briefing. Os contatos são extraídos automaticamente.",
   quota_label:"Cota da API",
   quota_units:"{{n}} / 10.000 unidades",
-  search_placeholder:"Digite um nicho — finanças, minecraft, culinária…",
+  search_placeholder:"Nicho, depois refinos — ex: minecraft, smp, hardcore",
   run_ready:"Pronto para buscar",
   log_label:"Log de Execução",
   log_clear:"Limpar",
@@ -1271,6 +1894,11 @@ const I18N={
   clear_history:"Limpar histórico",
   status_done:"Concluído",
   confirm_clear_history:"Limpar todo o histórico de buscas?",
+  clear_pipeline:"Limpar Pipeline",
+  confirm_clear_pipeline:"Remover todos os {{n}} criadores do Pipeline? Essa ação não pode ser desfeita.",
+  filters_quota_note:"Quanto mais filtros você utilizar, maior será o consumo da cota da API do YouTube.",
+  prev_page:"Página anterior",
+  next_page:"Próxima página",
   prof_eyebrow:"Conta",
   prof_sub:"Seus dados ficam somente neste dispositivo — sem servidor, sem sincronização.",
   change_photo_title:"Clique para trocar a foto",
@@ -1359,6 +1987,7 @@ const I18N={
   reason_subs_above_max:"inscritos acima do máximo",
   reason_score_too_low:"pontuação muito baixa",
   reason_diff_country:"país diferente",
+  reason_unknown_country:"país não identificado",
   reason_missing:"faltando {{list}}",
   reason_no_of:"sem {{list}}",
   desc_min:"mín {{n}}",
@@ -1390,7 +2019,6 @@ const I18N={
   country_label:"País",
   language_label:"Idioma",
   added_label:"Adicionado",
-  confirm_delete_creator:"Excluir este criador permanentemente?",
   saved_summary:"{{add}} novo(s) · {{upd}} atualizado(s)",
   saved_to_pipeline:"{{n}} canais salvos no pipeline",
   no_creators_export:"Nenhum criador para exportar.",
@@ -1409,6 +2037,78 @@ const I18N={
   auth_password:"Password",
   auth_signin:"Sign in",
   auth_create_pass_msg:"Create a password to protect this app.",
+  pix_pick_value:"Pick an amount first.",
+  terms_active:"Niche: {{niche}} — refined by: {{list}}",
+  reason_off_niche:"outside the niche",
+  reason_off_terms:"doesn't match the terms",
+  forgot_reset_working:"Erasing data…",
+  forgot_reset_err_body:"Could not erase all data. Check that your browser allows local storage and try again.",
+  dlg_ok:"OK",dlg_cancel:"Cancel",dlg_yes:"Confirm",
+  dlg_notice:"Notice",dlg_confirm:"Confirm",dlg_error:"Something went wrong",
+  dlg_storage:"Storage full",
+  dlg_clear:"Clear",dlg_erase:"Erase",dlg_discard:"Discard",dlg_restore:"Restore",
+  tpl_undo_tip:"Undo (Ctrl+Z)",
+  tpl_redo_tip:"Redo (Ctrl+Shift+Z)",
+  tpl_hint_pick:"Pick a lead above to fill the text in automatically.",
+  tpl_hint_filled:"Filled in with {{name}}'s data.",
+  tpl_edit_this:"Edit this template",
+  storage_full:"Browser storage is full. Your most recent changes may not have been saved.",
+  storage_fix:"See details",
+  storage_help:"Total in use: {{total}} (the limit is usually ~5 MB).\n\nWhat to do:\n  1. Export your leads as CSV or JSON (Pipeline tab).\n  2. Delete old leads you no longer need.\n  3. Swap your profile photo for a smaller one, or remove it.\n\nUsage per key:",
+  adv_filters:"Filters",
+  af_subs:"Subscribers",af_views:"Avg views",af_score:"Min score",af_country:"Country",
+  af_any:"Any",af_haschan:"Has contact on",
+  af_haschan_help:"Shows only leads with at least one of the checked channels.",
+  af_desc:"Highest first",af_clear:"Clear filters",
+  undo:"Undo",undo_dismiss:"Dismiss",
+  undo_deleted:"{{name}} removed from pipeline.",
+  undo_stage:"{{name}} → {{stage}}",
+  undo_cleared:"{{n}} leads removed.",
+  undo_tpl_deleted:"Template \u201c{{name}}\u201d deleted.",
+  undo_tpl_restored:"Default templates restored.",
+  nav_templates:"Templates",
+  tpl_eyebrow:"Outreach",
+  tpl_sub:"Ready-made messages for prospecting and first contact. Pick a lead and the text fills itself in.",
+  tpl_library:"Library",tpl_new:"+ New",tpl_new_name:"New template",
+  tpl_all_cats:"All categories",
+  tpl_cat_cold:"First contact — cold",tpl_cat_warm:"First contact — warm",
+  tpl_cat_f1:"Follow-up 1",tpl_cat_f2:"Follow-up 2",
+  tpl_cat_int:"Replied interested",tpl_cat_close:"Closing out",
+  tpl_pick_lead:"Fill with lead",tpl_no_lead:"— no lead (shows variables) —",
+  tpl_platform:"Platform",
+  tpl_subject:"Subject (email)",tpl_subject_short:"Subject",tpl_body:"Message",
+  tpl_vars:"Variables:",
+  tpl_save:"Save",tpl_dup:"Duplicate",tpl_del:"Delete",tpl_restore:"Restore defaults",
+  tpl_preview:"Preview",tpl_copy:"Copy message",tpl_copy_all:"Copy with subject",
+  tpl_mailto:"Open in email",
+  tpl_saved:"Template saved.",tpl_copied:"Message copied.",tpl_copied_all:"Subject + message copied.",
+  tpl_copy_err:"Couldn't copy.",
+  tpl_copy_suffix:"(copy)",tpl_untitled:"Untitled",
+  tpl_empty:"No templates in this category.",
+  tpl_unsaved:"You have unsaved changes. Switch template anyway?",
+  tpl_confirm_restore:"This replaces every template with the defaults. Continue?",
+  tpl_prev_empty:"(empty message)",
+  tpl_chars:"characters",
+  tpl_limit_note:"This platform's limit: {{n}} characters.",
+  tpl_limit_none:"Email has no practical length limit.",
+  tpl_you:"[your name]",
+  forgot_link:"Forgot your password?",
+  forgot_warn:"Your password is stored as a <b>SHA-256 hash</b> — it can't be read back. The only way forward is to wipe the profile and create a new login.",
+  forgot_how:"How to regain access",
+  forgot_s1:"Open the app and press <b>F12</b> (or Ctrl+Shift+I) to open your browser's DevTools.",
+  forgot_s2:"Go to the <b>Application</b> tab → <b>Local Storage</b> → select this site.",
+  forgot_s3:"Delete the <code>jb_profile</code> key. This clears your name and password.",
+  forgot_s4:"Reload the page: the <b>Create access</b> screen will show up again.",
+  forgot_s5:"Your leads and history stay saved — only the profile is reset.",
+  forgot_fast:"Shortcut",
+  forgot_fast_note:"The button below does steps 3 and 4 for you. This can't be undone.",
+  forgot_dl:"Download notepad file",
+  forgot_reset:"Wipe profile and start over",
+  forgot_dl_ok:"File downloaded.",
+  forgot_dl_err:"Couldn't download the file.",
+  forgot_confirm:"This permanently erases your name and password. Your leads and history stay saved. Continue?",
+  forgot_reset_ok:"Profile wiped. Reloading...",
+  forgot_reset_err:"Couldn't wipe the profile.",
   auth_welcome_back:"Welcome back, {{name}}.",
   err_enter_name:"Enter your name.",
   err_pass_min:"Password must be at least 4 characters.",
@@ -1431,7 +2131,7 @@ const I18N={
   disc_sub:"Search YouTube for creators that match your brief. Contacts are extracted automatically.",
   quota_label:"API Quota",
   quota_units:"{{n}} / 10,000 units",
-  search_placeholder:"Enter a niche — finance, minecraft, cooking…",
+  search_placeholder:"Niche, then refinements — e.g. minecraft, smp, hardcore",
   run_ready:"Ready to search",
   log_label:"Execution Log",
   log_clear:"Clear",
@@ -1512,6 +2212,11 @@ const I18N={
   clear_history:"Clear history",
   status_done:"Done",
   confirm_clear_history:"Clear all search history?",
+  clear_pipeline:"Clear Pipeline",
+  confirm_clear_pipeline:"Remove all {{n}} creators from the Pipeline? This action can't be undone.",
+  filters_quota_note:"Using more filters increases YouTube API quota consumption.",
+  prev_page:"Previous page",
+  next_page:"Next page",
   prof_eyebrow:"Account",
   prof_sub:"Your data lives only on this device — no server, no sync.",
   change_photo_title:"Click to change photo",
@@ -1600,6 +2305,7 @@ const I18N={
   reason_subs_above_max:"subscribers above max",
   reason_score_too_low:"score too low",
   reason_diff_country:"different country",
+  reason_unknown_country:"country not identified",
   reason_missing:"missing {{list}}",
   reason_no_of:"no {{list}}",
   desc_min:"min {{n}}",
@@ -1631,7 +2337,6 @@ const I18N={
   country_label:"Country",
   language_label:"Language",
   added_label:"Added",
-  confirm_delete_creator:"Permanently delete this creator?",
   saved_summary:"{{add}} new · {{upd}} updated",
   saved_to_pipeline:"{{n}} channels saved to pipeline",
   no_creators_export:"No creators to export.",
@@ -1691,15 +2396,76 @@ function load(){
   if(!Array.isArray(State.cfg.keys))State.cfg.keys=[];
   if(typeof State.cfg.keyIdx!=='number')State.cfg.keyIdx=0;
   if(State.cfg.lang!=='pt-BR'&&State.cfg.lang!=='en-US')State.cfg.lang='pt-BR';
+  if(!State.cfg.keyUsage||typeof State.cfg.keyUsage!=='object')State.cfg.keyUsage={};
   document.documentElement.setAttribute('lang',State.cfg.lang);
+  resetQuotaIfNewDay();
   renderKeysList();
   initTheme();
   applyI18n();
+  refreshQuotaUI();
 }
 function currentKey(){const k=State.cfg.keys;if(!k.length)return'';if(State.cfg.keyIdx>=k.length)State.cfg.keyIdx=0;return k[State.cfg.keyIdx]}
-const persistLeads=()=>localStorage.setItem(LS.leads,JSON.stringify(State.leads));
-const persistHist =()=>localStorage.setItem(LS.hist,JSON.stringify(State.hist));
-const persistCfg  =()=>localStorage.setItem(LS.cfg,JSON.stringify(State.cfg));
+/* Storage can be blocked entirely in some embedded/sandboxed preview
+   contexts (SecurityError or QuotaExceededError on setItem). Without this
+   guard, any button handler that calls persistX() mid-flow would throw and
+   silently abort — e.g. the very first "Criar acesso" step would never
+   reach unlockUI(), leaving the whole app stuck behind the locked overlay
+   looking totally unresponsive. Degrade to in-memory-only instead. */
+let storageWarned=false;
+function safeSetItem(key,value){
+  try{localStorage.setItem(key,value);return true}
+  catch(e){
+    const quota=(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22||e.code===1014));
+    if(quota){notifyStorageFull(key)}
+    else if(!storageWarned){storageWarned=true;console.warn('Local storage is unavailable — changes will not be saved between sessions.',e)}
+    return false;
+  }
+}
+
+/* ══ AVISO DE ARMAZENAMENTO CHEIO ══ */
+let storageFullShown=false;
+function notifyStorageFull(key){
+  console.error('localStorage quota exceeded while writing:',key);
+  if(storageFullShown)return;
+  storageFullShown=true;
+  try{
+    let bar=document.getElementById('storage-alert');
+    if(!bar){
+      bar=document.createElement('div');
+      bar.id='storage-alert';bar.className='storage-alert';
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML=`<span class="sa-icon">!</span>
+      <span class="sa-msg">${esc(t('storage_full'))}</span>
+      <button class="sa-btn" onclick="openStorageHelp()">${esc(t('storage_fix'))}</button>
+      <button class="sa-x" onclick="this.parentNode.remove();storageFullShown=false" aria-label="close">&times;</button>`;
+    requestAnimationFrame(()=>bar.classList.add('show'));
+  }catch(err){}
+}
+
+function storageUsage(){
+  let total=0;const per={};
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      const v=localStorage.getItem(k)||'';
+      const bytes=(k.length+v.length)*2;
+      per[k]=bytes;total+=bytes;
+    }
+  }catch(e){}
+  return{total,per};
+}
+
+function openStorageHelp(){
+  const u=storageUsage();
+  const fmtKB=b=>(b/1024).toFixed(0)+' KB';
+  const rows=Object.entries(u.per).sort((a,b)=>b[1]-a[1])
+    .map(([k,b])=>`  • ${k}: ${fmtKB(b)}`).join('\n');
+  appAlert(t('storage_help',{total:fmtKB(u.total)}),{tone:'warn',title:t('dlg_storage'),pre:rows});
+}
+const persistLeads=()=>safeSetItem(LS.leads,JSON.stringify(State.leads));
+const persistHist =()=>safeSetItem(LS.hist,JSON.stringify(State.hist));
+const persistCfg  =()=>safeSetItem(LS.cfg,JSON.stringify(State.cfg));
 
 /* ══ NAV ══ */
 document.querySelectorAll('.navitem').forEach(t=>t.addEventListener('click',()=>switchView(t.dataset.view)));
@@ -1709,6 +2475,7 @@ function switchView(v){
   document.getElementById('v-'+v).classList.add('active');
   document.querySelector(`.navitem[data-view="${v}"]`).classList.add('active');
   if(v==='pipeline')renderLeads();
+  if(v==='templates')loadTemplatesView();
   if(v==='overview')renderDash();
   if(v==='history')renderHist();
   if(v==='profile')loadProfileView();
@@ -1730,10 +2497,23 @@ function renderKeysList(){
     return`<div class="key-row"><span style="flex:1;font-size:12px;font-family:monospace;color:var(--ink3)">${maskKey(k)}</span>${active?`<span class="key-badge">${t('active')}</span>`:`<span class="muted mini">${t('standby')}</span>`}<button class="btn btn-xs btn-danger" onclick="removeKey(${i})">${t('remove')}</button></div>`;
   }).join('');
 }
-function addKey(){const inp=document.getElementById('key-inp');const k=inp.value.trim();if(!k)return;if(State.cfg.keys.includes(k)){inp.value='';return}State.cfg.keys.push(k);persistCfg();inp.value='';renderKeysList()}
-function removeKey(i){State.cfg.keys.splice(i,1);if(State.cfg.keyIdx>=State.cfg.keys.length)State.cfg.keyIdx=0;persistCfg();renderKeysList()}
-function setActiveKey(i){State.cfg.keyIdx=i;persistCfg();renderKeysList()}
-function rotateKey(){if(State.cfg.keys.length<=1)return false;State.cfg.keyIdx=(State.cfg.keyIdx+1)%State.cfg.keys.length;persistCfg();renderKeysList();return true}
+function addKey(){const inp=document.getElementById('key-inp');const k=inp.value.trim();if(!k)return;if(State.cfg.keys.includes(k)){inp.value='';return}State.cfg.keys.push(k);persistCfg();inp.value='';renderKeysList();refreshQuotaUI()}
+function removeKey(i){
+  const removed=State.cfg.keys[i];
+  State.cfg.keys.splice(i,1);
+  if(removed!=null&&State.cfg.keyUsage)delete State.cfg.keyUsage[removed]; // clear any leftover state for the removed key
+  if(State.cfg.keyIdx>=State.cfg.keys.length)State.cfg.keyIdx=0;
+  persistCfg();renderKeysList();refreshQuotaUI();
+}
+function rotateKey(){
+  const keys=State.cfg.keys;if(keys.length<=1)return false;
+  const start=State.cfg.keyIdx;
+  for(let step=1;step<=keys.length;step++){
+    const idx=(start+step)%keys.length;
+    if(keyUsage(keys[idx])<10000){State.cfg.keyIdx=idx;persistCfg();renderKeysList();return true} // prefer a key not already known to be exhausted today
+  }
+  State.cfg.keyIdx=(start+1)%keys.length;persistCfg();renderKeysList();return true; // all exhausted — advance anyway so the real error surfaces
+}
 
 /* ══ HELPERS ══ */
 const $=id=>document.getElementById(id);
@@ -1767,15 +2547,34 @@ function updateFilterWarn(){
 }
 function describeFilters(f){const a=[];if(f.minSubs)a.push(t('desc_min',{n:fmtN(f.minSubs)}));if(f.maxSubs)a.push(t('desc_max',{n:fmtN(f.maxSubs)}));if(f.minScore)a.push(t('desc_score',{n:f.minScore}));if(f.countries&&f.countries.length)a.push(f.countries.join('/'));if(f.contacts.length)a.push(t(f.contactMode==='all'?'desc_contacts_all':'desc_contacts_any',{list:f.contacts.join(',')}));if(f.hideSeen)a.push(t('desc_hide_saved'));return a}
 function leadHasContact(l){return['discord','twitter','email','instagram','tiktok','website','linkedin'].some(c=>l[c])}
-function rejectReason(l,f,seenDB){if(f.hideSeen&&seenDB.has(l.channel_id))return t('reason_already_saved');if(f.minSubs&&l.subscribers<f.minSubs)return t('reason_subs_below_min');if(f.maxSubs&&l.subscribers>f.maxSubs)return t('reason_subs_above_max');if(f.minScore&&l.score<f.minScore)return t('reason_score_too_low');if(f.countries&&f.countries.length&&l.country&&!f.countries.includes(l.country))return t('reason_diff_country');if(f.contacts.length){if(f.contactMode==='all'){const missing=f.contacts.filter(c=>!l[c]);if(missing.length)return t('reason_missing',{list:missing.join('+')})}else{const hasAny=f.contacts.some(c=>l[c]);if(!hasAny)return t('reason_no_of',{list:f.contacts.join('/')})}}return null}
-function passFilters(l,f,seenDB){return rejectReason(l,f,seenDB)===null}
+function rejectReason(l,f,seenDB){if(f.hideSeen&&seenDB.has(l.channel_id))return t('reason_already_saved');if(f.minSubs&&l.subscribers<f.minSubs)return t('reason_subs_below_min');if(f.maxSubs&&l.subscribers>f.maxSubs)return t('reason_subs_above_max');if(f.minScore&&l.score<f.minScore)return t('reason_score_too_low');if(f.countries&&f.countries.length){if(!l.country)return t('reason_unknown_country');if(!f.countries.includes(l.country))return t('reason_diff_country');}if(f.contacts.length){if(f.contactMode==='all'){const missing=f.contacts.filter(c=>!l[c]);if(missing.length)return t('reason_missing',{list:missing.join('+')})}else{const hasAny=f.contacts.some(c=>l[c]);if(!hasAny)return t('reason_no_of',{list:f.contacts.join('/')})}}return null}
 
-/* ══ QUOTA ══ */
+/* ══ QUOTA (tracked per key — see also currentKey()/rotateKey()/removeKey() below) ══
+   Each API key gets its own 10,000-unit/day budget from Google. Usage is now
+   tracked per key (State.cfg.keyUsage, keyed by the key string) instead of a
+   single shared counter, and resets once per Pacific day (matching Google's
+   own reset schedule) so old numbers never linger across sessions. Whenever
+   the active key changes — rotation, removal, or manual selection — the
+   quota bar is recomputed immediately from ONLY that key's tracked usage,
+   so switching keys never keeps showing the previous key's leftover state.
+═══════════════════════════════════════════════════════════════════ */
+function keyUsage(k){return(k&&State.cfg.keyUsage&&State.cfg.keyUsage[k])||0}
+function setKeyUsage(k,v){if(!k)return;if(!State.cfg.keyUsage)State.cfg.keyUsage={};State.cfg.keyUsage[k]=v;persistCfg()}
+function addKeyUsage(k,u){if(!k)return;setKeyUsage(k,keyUsage(k)+u)}
+function pacificDateStr(){try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'})}catch(e){return new Date().toISOString().slice(0,10)}}
+function resetQuotaIfNewDay(){
+  const today=pacificDateStr();
+  if(State.cfg.quotaResetDate!==today){State.cfg.keyUsage={};State.cfg.quotaResetDate=today;persistCfg()}
+}
+function refreshQuotaUI(){
+  const key=currentKey();const used=keyUsage(key);State.quota=used;
+  const pct=Math.min(100,used/100);
+  const bar=$('q-bar');if(bar){bar.style.width=pct+'%';bar.style.background=pct<60?'var(--green)':pct<85?'var(--amber)':'var(--red)'}
+  const sub=$('q-sub');if(sub)sub.textContent=t('quota_units',{n:used.toLocaleString(State.cfg.lang==='en-US'?'en-US':'pt-BR')});
+}
 function addQuota(u){
-  State.quota+=u;const pct=Math.min(100,State.quota/100);
-  const bar=$('q-bar');bar.style.width=pct+'%';
-  bar.style.background=pct<60?'var(--green)':pct<85?'var(--amber)':'var(--red)';
-  $('q-sub').textContent=t('quota_units',{n:State.quota.toLocaleString(State.cfg.lang==='en-US'?'en-US':'pt-BR')});
+  addKeyUsage(currentKey(),u);
+  refreshQuotaUI();
   const cost=$('q-cost');cost.style.display='';cost.textContent=`+${u.toLocaleString('pt-BR')}`;
   setTimeout(()=>cost.style.display='none',2000);
 }
@@ -1790,7 +2589,17 @@ async function api(endpoint,params){
     const j=await r.json();if(r.ok)return j;
     const reason=j?.error?.errors?.[0]?.reason||'';const code=j?.error?.code||r.status;
     const isQuota=reason.toLowerCase().includes('quota')||code===429;attempts++;
-    if(isQuota&&attempts<maxAttempts&&rotateKey()){const newKey=currentKey();log(`Key ${State.cfg.keyIdx+1}/${State.cfg.keys.length} — quota hit, rotating…`,'i');key=newKey;continue}
+    if(isQuota){
+      setKeyUsage(key,10000); // this key is confirmed exhausted — pin it so it never looks fresh again today
+      if(attempts<maxAttempts&&rotateKey()){
+        const newKey=currentKey();
+        log(`Key ${State.cfg.keyIdx+1}/${State.cfg.keys.length} — quota hit, rotating…`,'i');
+        key=newKey; // fully switch — no further calls in this loop touch the old key or its state
+        refreshQuotaUI();
+        continue;
+      }
+    }
+    refreshQuotaUI();
     throw Object.assign(new Error(reason||code),{code,reason});
   }
 }
@@ -1810,6 +2619,34 @@ function extractContacts(text){
   out.website=urls.find(u=>!social.some(s=>u.toLowerCase().includes(s)))||null;
   if(!out.website&&(m=t.match(/linktr\.ee\/([A-Za-z0-9_\-]+)/i)))out.website=`https://linktr.ee/${m[1]}`;
   return out;
+}
+
+
+/* ══ INFERÊNCIA DE PAÍS ══
+   YouTube often omits snippet.country. With a strict country filter that
+   would discard many genuine matches, so we fall back to the channel's
+   declared language when it maps unambiguously to one country.
+   Ambiguous languages (en, es, pt, fr, ar...) are deliberately absent —
+   guessing there would be worse than admitting we don't know. */
+const LANG_TO_COUNTRY={
+  'ja':'JP','ko':'KR','th':'TH','vi':'VN','tr':'TR','pl':'PL','nl':'NL',
+  'sv':'SE','no':'NO','nb':'NO','nn':'NO','da':'DK','fi':'FI','el':'GR',
+  'cs':'CZ','sk':'SK','hu':'HU','ro':'RO','bg':'BG','uk':'UA','he':'IL',
+  'iw':'IL','hi':'IN','bn':'BD','id':'ID','ms':'MY','tl':'PH','fil':'PH',
+  'fa':'IR','ru':'RU','zh-tw':'TW','zh-hk':'HK','it':'IT','de':'DE','ka':'GE'
+};
+function inferCountry(sn,br){
+  const raw=(sn.country||'').trim().toUpperCase();
+  if(raw)return{code:raw,inferred:false};
+  const cands=[sn.defaultLanguage,sn.defaultAudioLanguage,br&&br.defaultLanguage];
+  for(const c of cands){
+    if(!c)continue;
+    const low=String(c).toLowerCase();
+    if(LANG_TO_COUNTRY[low])return{code:LANG_TO_COUNTRY[low],inferred:true};
+    const base=low.split('-')[0];
+    if(LANG_TO_COUNTRY[base])return{code:LANG_TO_COUNTRY[base],inferred:true};
+  }
+  return{code:'',inferred:false};
 }
 
 /* ══ SCORE ══ */
@@ -1845,23 +2682,32 @@ async function processBatch(cids,onProg){
     for(const vid of md.ids){const v=vBy[vid];if(!v)continue;const d=v.snippet?.description||'';if(d.length>5)parts.push(d);const views=+(v.statistics?.viewCount||0);if(views>0){tv+=views;vc++}}
     const avgViews=vc?Math.round(tv/vc):0;
     const th=sn.thumbnails||{};const contacts=extractContacts(parts.join('\n'));
+    const ctry=inferCountry(sn,ch.brandingSettings&&ch.brandingSettings.channel);
+    const hasAnyContact=['discord','twitter','email','instagram','tiktok','website','linkedin'].some(k=>contacts[k]);
+    if(!hasAnyContact)continue; // discard channels with no contact method at all — never shown or saved
     const score=calcScore(st,avgViews,md.freq);
-    leads.push({channel_id:cid,channel_name:sn.title||'',channel_url:`https://youtube.com/channel/${cid}`,subscribers:+(st.subscriberCount||0),avg_views:avgViews,video_count:+(st.videoCount||0),last_video_date:md.last,country:sn.country||'',language:sn.defaultLanguage||'',description:(sn.description||'').slice(0,400),thumbnail_url:(th.high||th.medium||th.default||{}).url||'',posting_frequency:md.freq,score,...contacts,status:'novo',is_favorite:false,notes:'',created_at:new Date().toISOString()});
+    leads.push({channel_id:cid,channel_name:sn.title||'',channel_url:`https://youtube.com/channel/${cid}`,subscribers:+(st.subscriberCount||0),avg_views:avgViews,video_count:+(st.videoCount||0),last_video_date:md.last,country:ctry.code,country_inferred:ctry.inferred,language:sn.defaultLanguage||sn.defaultAudioLanguage||'',description:(sn.description||'').slice(0,400),thumbnail_url:(th.high||th.medium||th.default||{}).url||'',posting_frequency:md.freq,score,...contacts,status:'novo',is_favorite:false,notes:'',created_at:new Date().toISOString()});
   }
   return leads;
 }
 
+let searchRunning=false;
 async function runSearch(){
+  // Re-entrancy guard: without it, rapid clicks start overlapping searches
+  // that interleave State.results and push duplicate history entries.
+  if(searchRunning)return;
   if(!currentKey()){openModal('m-keys');return}
   const query=$('q').value.trim();if(!query){log(t('msg_enter_search_term'),'e');return}
+  searchRunning=true;
+  stopFlag=false;  // clear before any await, so a prior stop can't kill this run
   const maxCh=Math.min(200,Math.max(1,parseInt($('qmax').value)||30));
   const filters=readFilters();
   $('log').innerHTML='';$('results').style.display='none';
   {const w=$('welcome');if(w)w.style.display='none';}
-  $('run-badge').style.display='none';$('btn-save').style.display='none';
+  $('run-badge').style.display='none';$('btn-save').style.display='none';$('btn-save-sidebar').style.display='none';
   $('btn-search').style.display='none';$('btn-stop').style.display='';
   $('prog-wrap').style.display='';setProg(0);
-  State.results=[];stopFlag=false;
+  State.results=[];
   const df=describeFilters(filters);
   log(df.length?t('filters_prefix',{list:df.join(' · ')}):t('no_filters'),df.length?'i':'d');
   logLine();
@@ -1871,13 +2717,26 @@ async function runSearch(){
     const collected=new Set();const processedIds=new Set();const allLeads=[];const passedLeads=[];const rejections={};
     const now=new Date(),windows=[];const stepMonths=3;const maxMonths=36;
     for(let mo=0;mo<maxMonths;mo+=stepMonths){const b=new Date(now);b.setMonth(b.getMonth()-mo);const a=new Date(now);a.setMonth(a.getMonth()-mo-stepMonths);windows.push({publishedBefore:b.toISOString(),publishedAfter:a.toISOString()})}
-    const queryVariants=[query];
+    const queryVariants=buildQueryVariants(query);
+    const relevance=buildRelevance(query);
+    const parsedQ=parseQuery(query);
+    if(parsedQ.refinements.length)log(t('terms_active',{niche:parsedQ.niche,list:parsedQ.refinements.join(' · ')}),'i');
     const orders=['relevance','date','viewCount'];
-    const sources=[];for(const qv of queryVariants)for(const order of orders)sources.push({qv,order,windows:[...windows]});
-    const batchSize=50;const maxRounds=8;const targetPool=maxCh*8;
+    const sources=[];
+    // Ask YouTube to bias results toward the chosen countries. This narrows
+    // the pool at the source instead of fetching then discarding.
+    const regions=(filters.countries&&filters.countries.length)?filters.countries:[null];
+    for(const qv of queryVariants)for(const order of orders)for(const rc of regions)sources.push({qv,order,rc,windows:[...windows]});
+    // Strict country + relevance gating rejects a lot more, so the candidate
+    // pool must grow or we run dry before reaching maxCh. This trades API
+    // quota for precision, which is the intended tradeoff.
+    const strict=(filters.countries&&filters.countries.length>0)||parsedQ.refinements.length>0;
+    const batchSize=50;
+    const maxRounds=strict?20:8;
+    const targetPool=maxCh*(strict?24:8);
     SLEEP=10;CONCURRENCY=8;VIDS_PER_CH=20;
     let round=0,srcIdx=0,exhausted=false;
-    async function collectFrom(src,want){let added=0,guard=0;while(added<want&&!stopFlag&&guard<8){guard++;try{const p={part:'snippet',q:src.qv,type:'video',maxResults:50,order:src.order};if(src._pt)p.pageToken=src._pt;const wIdx=src._w||0;if(wIdx>0&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);const r=await api('search',p);(r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++;}});if(r.nextPageToken){src._pt=r.nextPageToken}else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length){src._done=true;break;}}await sleep(SLEEP)}catch(e){if(e.code===429||(e.reason||'').includes('quota'))throw e;src._done=true;break;}}return added}
+    async function collectFrom(src,want){let added=0,guard=0;const guardMax=strict?20:8;while(added<want&&!stopFlag&&guard<guardMax){guard++;try{const p={part:'snippet',q:src.qv,type:'video',maxResults:50,order:src.order};if(src.rc)p.regionCode=src.rc;if(src._pt)p.pageToken=src._pt;const wIdx=src._w||0;if(wIdx>0&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);const r=await api('search',p);(r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++;}});if(r.nextPageToken){src._pt=r.nextPageToken}else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length){src._done=true;break;}}await sleep(SLEEP)}catch(e){if(e.code===429||(e.reason||'').includes('quota'))throw e;src._done=true;break;}}return added}
     async function collectNextBatch(){let need=batchSize;while(need>0&&srcIdx<sources.length&&!stopFlag){const src=sources[srcIdx];if(src._done){srcIdx++;continue;}const got=await collectFrom(src,need);need-=got;if(src._done)srcIdx++;if(collected.size>=targetPool)break}const fresh=[...collected].filter(c=>!processedIds.has(c));const batch=fresh.slice(0,batchSize);batch.forEach(c=>processedIds.add(c));return batch}
     setStatus(t('collecting_channels'));let nextBatch=await collectNextBatch();
     while(nextBatch.length>0&&round<maxRounds&&!stopFlag){
@@ -1887,7 +2746,7 @@ async function runSearch(){
       const baseProg=Math.min(90,(passedLeads.length/maxCh)*90);
       const [leads]=await Promise.all([processBatch(batch,(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,8)))),(async()=>{if(passedLeads.length<maxCh)nextBatch=await collectNextBatch();else nextBatch=[]})()]);
       allLeads.push(...leads);
-      let newPassed=0;for(const l of leads){const reason=rejectReason(l,filters,seenDB);if(reason===null){passedLeads.push(l);newPassed++}else{rejections[reason]=(rejections[reason]||0)+1}}
+      let newPassed=0;for(const l of leads){const reason=relevanceCheck(l,relevance)||rejectReason(l,filters,seenDB);if(reason===null){passedLeads.push(l);newPassed++}else{rejections[reason]=(rejections[reason]||0)+1}}
       const withC=leads.filter(leadHasContact).length;
       log(t('passed_line',{n:newPassed,withC,total:leads.length,passed:passedLeads.length,max:maxCh}),'k');
       setProg(Math.min(95,(passedLeads.length/maxCh)*95));
@@ -1905,18 +2764,31 @@ async function runSearch(){
     if(!final.length){log('','d');log(t('no_channels_passed'),'e')}
     else{log('','d');log(t('top5'),'i');final.slice(0,5).forEach((l,i)=>{const cc=['discord','twitter','email','instagram','tiktok'].filter(c=>l[c]).join(', ')||t('no_contact');log(`  ${i+1}. ${l.channel_name} — ${fmtN(l.subscribers)} subs — Score ${l.score} — ${cc}`,'k')}); renderChannels(final)}
     const badge=$('run-badge');badge.textContent=t('results_channels_found',{n:final.length});badge.style.display=final.length?'':'none';
-    if(final.length)$('btn-save').style.display='';
+    if(final.length){$('btn-save').style.display='';$('btn-save-sidebar').style.display='';}
     State.hist.unshift({query,results:final.length,ts:new Date().toISOString()});if(State.hist.length>100)State.hist.pop();persistHist();
     setStatus(t('done_found',{n:final.length}));
-  }catch(e){if(e.message==='STOP'){setStatus(t('search_stopped'));return}const msg=friendly(e);logLine();log(t('error_prefix',{msg}),'e');setStatus(t('error_status'));alert(msg)}
-  finally{$('btn-search').style.display='';$('btn-stop').style.display='none';$('prog-wrap').style.display='none'}
+  }catch(e){if(e.message==='STOP'){setStatus(t('search_stopped'));return}const msg=friendly(e);logLine();log(t('error_prefix',{msg}),'e');setStatus(t('error_status'));appAlert(msg,{tone:'error',title:t('dlg_error')})}
+  finally{searchRunning=false;$('btn-search').style.display='';$('btn-stop').style.display='none';$('prog-wrap').style.display='none'}
 }
-function stopSearch(){stopFlag=true;log(t('search_stopped_user'),'e')}
+function stopSearch(){if(!searchRunning)return;stopFlag=true;log(t('search_stopped_user'),'e')}
 
 /* ══ CHANNEL CARDS ══ */
 const PRI=[['discord','Discord','cp-dc'],['twitter','X / Twitter','cp-tw'],['email','Email','cp-em'],['instagram','Instagram','cp-ig'],['tiktok','TikTok','cp-tk']];
 const SEC=[['website','Website','cp-wb'],['linkedin','LinkedIn','cp-li']];
-function contactPill(l,key,label,cls){if(!l[key])return'';const href=key==='email'?`mailto:${l[key]}`:l[key];return`<a href="${href}" target="_blank" class="contact-pill ${cls}">${label}</a>`}
+
+/* ══ URL SEGURA ══
+   Channel/contact URLs arrive from the API or an imported JSON file. Dropping
+   them straight into href allows javascript:/data: schemes to run on click,
+   and unescaped quotes to break out of the attribute. */
+function safeUrl(u){
+  const raw=String(u==null?'':u).trim();
+  if(!raw)return '';
+  if(/^(?:https?:|mailto:)/i.test(raw))return esc(raw);
+  if(/^[a-z][a-z0-9+.-]*:/i.test(raw))return '';   // reject any other scheme
+  return esc(raw);                                  // relative/protocol-less
+}
+
+function contactPill(l,key,label,cls){if(!l[key])return'';const href=safeUrl(key==='email'?`mailto:${l[key]}`:l[key]);if(!href)return'';return`<a href="${href}" target="_blank" rel="noopener noreferrer" class="contact-pill ${cls}">${label}</a>`}
 function renderChannels(leads){
   $('results-title').textContent=t('results_channels_found',{n:leads.length});
   $('channel-list').innerHTML=leads.map((l,i)=>{
@@ -1940,7 +2812,7 @@ function renderChannels(leads){
         ${sec.length?`<button class="contact-pill cp-wb" onclick="toggleMore(this)" data-pills='${esc(JSON.stringify(sec))}'>+${sec.length} ${t('more_suffix')}</button>`:''}
       </div>
       <div class="ch-action">
-        <a href="${l.channel_url}" target="_blank" class="btn btn-ghost btn-xs">${t('view')}</a>
+        <a href="${safeUrl(l.channel_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-xs">${t('view')}</a>
       </div>
     </div>`;
   }).join('');
@@ -1949,34 +2821,165 @@ function renderChannels(leads){
 function toggleMore(btn){const box=btn.parentNode;if(btn.dataset.open){box.querySelectorAll('.extra-c').forEach(e=>e.remove());btn.textContent=`+${JSON.parse(btn.getAttribute('data-pills')).length} ${t('more_suffix')}`;delete btn.dataset.open}else{JSON.parse(btn.getAttribute('data-pills')).forEach(h=>{const d=document.createElement('div');d.innerHTML=h;const a=d.firstChild;a.classList.add('extra-c');btn.before(a)});btn.textContent=`− ${t('less_suffix')}`;btn.dataset.open='1'}}
 
 /* ══ SAVE ══ */
-function saveResults(){let add=0,upd=0;State.results.forEach(l=>{const i=State.leads.findIndex(x=>x.channel_id===l.channel_id);if(i>=0){State.leads[i]={...State.leads[i],...l,status:State.leads[i].status,notes:State.leads[i].notes,is_favorite:State.leads[i].is_favorite};upd++}else{State.leads.push(l);add++}});persistLeads();log(t('saved_summary',{add,upd}),'k');$('btn-save').style.display='none';setStatus(t('saved_to_pipeline',{n:add}))}
+function saveResults(){let add=0,upd=0;State.results.forEach(l=>{const i=State.leads.findIndex(x=>x.channel_id===l.channel_id);if(i>=0){State.leads[i]={...State.leads[i],...l,status:State.leads[i].status,notes:State.leads[i].notes,is_favorite:State.leads[i].is_favorite};upd++}else{State.leads.push(l);add++}});persistLeads();log(t('saved_summary',{add,upd}),'k');$('btn-save').style.display='none';$('btn-save-sidebar').style.display='none';setStatus(t('saved_to_pipeline',{n:add}));renderDash()}
 
 /* ══ PIPELINE ══ */
-function filteredLeads(){const q=$('l-search').value.toLowerCase(),st=$('l-status').value;return State.leads.filter(l=>{if(st&&l.status!==st)return false;if(State.favOnly&&!l.is_favorite)return false;if(q){const h=[l.channel_name,l.email,l.country,l.description].join(' ').toLowerCase();if(!h.includes(q))return false}return true})}
+const AF_CHANNELS=['email','discord','twitter','instagram'];
+function afVal(id){const el=$(id);if(!el)return'';return el.value.trim()}
+function afNum(id){const v=afVal(id);if(v==='')return null;const n=Number(v);return isNaN(n)?null:n}
+function afChecked(id){const el=$(id);return!!(el&&el.checked)}
+
+function activeFilterCount(){
+  let n=0;
+  if(afNum('af-subs-min')!==null||afNum('af-subs-max')!==null)n++;
+  if(afNum('af-views-min')!==null||afNum('af-views-max')!==null)n++;
+  if(afNum('af-score-min')!==null)n++;
+  if(afVal('af-country'))n++;
+  if(AF_CHANNELS.some(c=>afChecked('af-has-'+c)))n++;
+  return n;
+}
+
+function filteredLeads(){
+  const q=$('l-search').value.toLowerCase(),st=$('l-status').value;
+  const sMin=afNum('af-subs-min'),sMax=afNum('af-subs-max');
+  const vMin=afNum('af-views-min'),vMax=afNum('af-views-max');
+  const scMin=afNum('af-score-min');
+  const ctry=afVal('af-country');
+  const wanted=AF_CHANNELS.filter(c=>afChecked('af-has-'+c));
+  return State.leads.filter(l=>{
+    if(st&&l.status!==st)return false;
+    if(State.favOnly&&!l.is_favorite)return false;
+    if(q){const h=[l.channel_name,l.email,l.country,l.description].join(' ').toLowerCase();if(!h.includes(q))return false}
+    const subs=Number(l.subscribers)||0;
+    if(sMin!==null&&subs<sMin)return false;
+    if(sMax!==null&&subs>sMax)return false;
+    const views=Number(l.avg_views)||0;
+    if(vMin!==null&&views<vMin)return false;
+    if(vMax!==null&&views>vMax)return false;
+    if(scMin!==null&&(Number(l.score)||0)<scMin)return false;
+    if(ctry&&l.country!==ctry)return false;
+    if(wanted.length&&!wanted.some(c=>l[c]))return false;
+    return true;
+  });
+}
+
+function toggleAdvFilters(){
+  const p=$('adv-filters');if(!p)return;
+  p.classList.toggle('open');
+  $('btn-advfilter')?.classList.toggle('active',p.classList.contains('open'));
+}
+
+function onAfChip(input){
+  input.closest('.chip')?.classList.toggle('selected',input.checked);
+  renderLeads();
+}
+
+function clearAdvFilters(){
+  ['af-subs-min','af-subs-max','af-views-min','af-views-max','af-score-min'].forEach(id=>{const e=$(id);if(e)e.value=''});
+  const c=$('af-country');if(c)c.value='';
+  AF_CHANNELS.forEach(ch=>{const e=$('af-has-'+ch);if(e){e.checked=false;e.closest('.chip')?.classList.remove('selected')}});
+  renderLeads();
+}
+
+function refreshCountryFilter(){
+  const sel=$('af-country');if(!sel)return;
+  const cur=sel.value;
+  const countries=[...new Set(State.leads.map(l=>l.country).filter(Boolean))].sort();
+  sel.innerHTML=`<option value="">${t('af_any')}</option>`+countries.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(countries.includes(cur))sel.value=cur;
+}
+
+function updateFilterBadge(){
+  const b=$('filt-badge');if(!b)return;
+  const n=activeFilterCount();
+  if(n){b.textContent=n;b.style.display=''}else{b.style.display='none'}
+}
+/* ══ PIPELINE PAGINATION ══ */
+const PIPELINE_PAGE_SIZE=10;
+let pipelinePage=0;
+let pipelineFilterSig=null;
 function renderLeads(){
-  const srt=$('l-sort').value;let leads=filteredLeads();leads.sort((a,b)=>(b[srt]||0)-(a[srt]||0)||a.channel_name.localeCompare(b.channel_name));
+  refreshCountryFilter();updateFilterBadge();
+  const srt=$('l-sort').value;const desc=afChecked('af-desc');
+  let leads=filteredLeads();
+  leads.sort((a,b)=>{const d=(Number(b[srt])||0)-(Number(a[srt])||0);const r=desc?d:-d;return r||a.channel_name.localeCompare(b.channel_name)});
+  const sig=JSON.stringify([$('l-search').value,$('l-status').value,srt,State.favOnly,desc,
+    afVal('af-subs-min'),afVal('af-subs-max'),afVal('af-views-min'),afVal('af-views-max'),
+    afVal('af-score-min'),afVal('af-country'),AF_CHANNELS.map(c=>afChecked('af-has-'+c)).join('')]);
+  if(sig!==pipelineFilterSig){pipelineFilterSig=sig;pipelinePage=0}
   $('l-count').textContent=t('pipe_count',{n:leads.length,s:leads.length!==1?(State.cfg.lang==='en-US'?'s':'es'):''});
-  const tb=$('l-body');
-  if(!leads.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">${t('empty_no_creators_title')}</div><div class="empty-sub">${t('empty_no_creators_sub')}</div></div></td></tr>`;return}
+  const tb=$('l-body');const pager=$('l-pagination');
+  if(!leads.length){tb.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">${t('empty_no_creators_title')}</div><div class="empty-sub">${t('empty_no_creators_sub')}</div></div></td></tr>`;if(pager)pager.innerHTML='';return}
+  const totalPages=Math.max(1,Math.ceil(leads.length/PIPELINE_PAGE_SIZE));
+  if(pipelinePage>=totalPages)pipelinePage=totalPages-1;
+  if(pipelinePage<0)pipelinePage=0;
+  const pageLeads=leads.slice(pipelinePage*PIPELINE_PAGE_SIZE,(pipelinePage+1)*PIPELINE_PAGE_SIZE);
   const stages={novo:'s-novo',contatado:'s-contatado',negociacao:'s-negociacao',cliente:'s-cliente',recusado:'s-recusado'};
   const stageLabel={novo:t('stage_new'),contatado:t('stage_contacted'),negociacao:t('stage_talks'),cliente:t('stage_client'),recusado:t('stage_declined')};
-  tb.innerHTML=leads.map(l=>{
-    const dc=l.discord?`<a href="${l.discord}" target="_blank" class="link mini" style="color:var(--dc)">↗</a>`:'<span class="muted">—</span>';
-    const tw=l.twitter?`<a href="${l.twitter}" target="_blank" class="link mini" style="color:var(--tw)">↗</a>`:'<span class="muted">—</span>';
+  tb.innerHTML=pageLeads.map(l=>{
+    const dc=l.discord?`<a href="${safeUrl(l.discord)}" target="_blank" rel="noopener noreferrer" class="link mini" style="color:var(--dc)">↗</a>`:'<span class="muted">—</span>';
+    const tw=l.twitter?`<a href="${safeUrl(l.twitter)}" target="_blank" rel="noopener noreferrer" class="link mini" style="color:var(--tw)">↗</a>`:'<span class="muted">—</span>';
     const em=l.email?`<a href="mailto:${l.email}" class="link mini" style="color:var(--green)">${esc(l.email)}</a>`:'<span class="muted">—</span>';
-    const ig=l.instagram?`<a href="${l.instagram}" target="_blank" class="link mini" style="color:var(--ig)">@${esc(l.instagram.split('/').pop())}</a>`:'<span class="muted">—</span>';
+    const ig=l.instagram?`<a href="${safeUrl(l.instagram)}" target="_blank" rel="noopener noreferrer" class="link mini" style="color:var(--ig)">@${esc(l.instagram.split('/').pop())}</a>`:'<span class="muted">—</span>';
     const av=l.thumbnail_url?`<img src="${l.thumbnail_url}" style="width:26px;height:26px;border-radius:8px;object-fit:cover;margin-right:8px;vertical-align:middle" onerror="this.remove()">`:'';
     return`<tr>
       <td class="t-c"><button class="fav-btn" onclick="toggleFav('${l.channel_id}')">${l.is_favorite?'★':'☆'}</button></td>
-      <td><span style="display:flex;align-items:center">${av}<a href="${l.channel_url}" target="_blank" class="link">${esc(l.channel_name)}</a></span></td>
+      <td><span style="display:flex;align-items:center">${av}<a href="${safeUrl(l.channel_url)}" target="_blank" rel="noopener noreferrer" class="link">${esc(l.channel_name)}</a></span></td>
       <td class="t-r muted">${fmtN(l.subscribers)}</td>
       <td class="t-r muted">${fmtN(l.avg_views)}</td>
       <td class="t-c"><b style="color:${scoreColor(l.score)}">${l.score}</b></td>
       <td>${dc}</td><td>${tw}</td><td>${em}</td><td>${ig}</td>
       <td class="t-c"><select class="stage-select ${stages[l.status]||'s-novo'}" onchange="quickStage('${l.channel_id}',this.value)">${['novo','contatado','negociacao','cliente','recusado'].map(s=>`<option value="${s}" ${l.status===s?'selected':''}>${stageLabel[s]}</option>`).join('')}</select></td>
-      <td><button class="btn btn-xs btn-ghost" onclick="openDetail('${l.channel_id}')">${t('open')}</button></td>
+      <td style="white-space:nowrap"><button class="btn btn-xs btn-ghost" onclick="openDetail('${l.channel_id}')">${t('open')}</button> <button class="btn btn-xs btn-danger" onclick="quickDeleteLead('${l.channel_id}')">${t('delete')}</button></td>
     </tr>`;
   }).join('');
+  renderPipelinePagination(totalPages);
+}
+function renderPipelinePagination(totalPages){
+  const pager=$('l-pagination');if(!pager)return;
+  if(totalPages<=1){pager.innerHTML='';return}
+  const cur=pipelinePage;
+  const html=[];
+  html.push(`<button class="page-btn page-nav" ${cur===0?'disabled':''} onclick="goToPipelinePage(${cur-1})" title="${t('prev_page')}" aria-label="${t('prev_page')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>`);
+  const pages=[];
+  const windowSize=7;
+  if(totalPages<=windowSize){for(let i=0;i<totalPages;i++)pages.push(i)}
+  else{
+    pages.push(0);
+    let start=Math.max(1,cur-1),end=Math.min(totalPages-2,cur+1);
+    if(cur<=2)end=3;
+    if(cur>=totalPages-3)start=totalPages-4;
+    if(start>1)pages.push('…');
+    for(let i=start;i<=end;i++)pages.push(i);
+    if(end<totalPages-2)pages.push('…');
+    pages.push(totalPages-1);
+  }
+  pages.forEach(p=>{
+    if(p==='…')html.push(`<span class="page-ellipsis">…</span>`);
+    else html.push(`<button class="page-btn${p===cur?' active':''}" ${p===cur?'aria-current="page"':''} onclick="goToPipelinePage(${p})">${p+1}</button>`);
+  });
+  html.push(`<button class="page-btn page-nav" ${cur===totalPages-1?'disabled':''} onclick="goToPipelinePage(${cur+1})" title="${t('next_page')}" aria-label="${t('next_page')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>`);
+  pager.innerHTML=html.join('');
+}
+function goToPipelinePage(p){pipelinePage=p;renderLeads();const wrap=document.querySelector('#v-pipeline .data-table-wrap');if(wrap)wrap.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function quickDeleteLead(cid){
+  const idx=State.leads.findIndex(l=>l.channel_id===cid);if(idx<0)return;
+  const removed=State.leads[idx];
+  State.leads.splice(idx,1);persistLeads();renderLeads();renderDash();
+  showUndo(t('undo_deleted',{name:removed.channel_name}),()=>{
+    State.leads.splice(Math.min(idx,State.leads.length),0,removed);
+    persistLeads();renderLeads();renderDash();
+  });
+}
+function clearPipeline(){
+  if(!State.leads.length)return;
+  appConfirm(t('confirm_clear_pipeline',{n:State.leads.length}),()=>{
+    const backup=State.leads.slice();
+    State.leads=[];persistLeads();renderLeads();renderDash();
+    showUndo(t('undo_cleared',{n:backup.length}),()=>{
+      State.leads=backup;persistLeads();renderLeads();renderDash();
+    },10000);
+  },{tone:'danger',okLabel:t('dlg_clear')});
 }
 function toggleFavFilter(){State.favOnly=!State.favOnly;const b=$('btn-fav');b.style.background=State.favOnly?'var(--green-dim)':'';b.style.borderColor=State.favOnly?'var(--green-border)':'';b.style.color=State.favOnly?'var(--green)':'';renderLeads()}
 function toggleFav(cid){const l=State.leads.find(l=>l.channel_id===cid);if(l){l.is_favorite=!l.is_favorite;persistLeads();renderLeads()}}
@@ -2007,19 +3010,580 @@ function openDetail(cid){
     <div class="form-field"><label class="field-label">${t('notes_label')}</label><textarea class="inp" id="d-notes" rows="3" style="resize:vertical">${esc(l.notes||'')}</textarea></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary btn-sm" onclick="saveNotes('${cid}')">${t('save')}</button>
-      <a href="${l.channel_url}" target="_blank" class="btn btn-ghost btn-sm">${t('open_on_youtube')}</a>
+      <a href="${safeUrl(l.channel_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">${t('open_on_youtube')}</a>
       <button class="btn btn-danger btn-xs" style="margin-left:auto" onclick="delLead('${cid}')">${t('delete')}</button>
     </div>`;
   openModal('m-detail');
 }
 function updStatus(cid,s){const l=State.leads.find(l=>l.channel_id===cid);if(l){l.status=s;persistLeads();renderLeads();renderDash()}}
-function quickStage(cid,s){const l=State.leads.find(l=>l.channel_id===cid);if(l){l.status=s;persistLeads();renderDash();}}
+
+/* ══ TEMPLATES DE OUTREACH ══ */
+const LS_TPL='jb_templates';
+const TPL_LIMITS={email:0,discord:2000,instagram:1000,twitter:10000};
+let tplCurrentId=null,tplDirty=false;
+
+function defaultTemplates(){
+  return [
+    {id:'t_frio_1',cat:'frio',title:'Frio — direto ao ponto',
+     subject:'Parceria com o {{canal}}',
+     body:`Fala {{nome}}, tudo certo?\n\nSou {{meunome}}. Acompanho o {{canal}} e curti bastante o jeito que você trabalha os vídeos — dá pra ver que a audiência é engajada de verdade, não é só número.\n\nTô procurando criadores pra uma parceria e achei que faz sentido com o que você já faz. Nada de script engessado: a ideia é algo que caiba naturalmente no seu conteúdo.\n\nPosso te mandar os detalhes? Se não for a sua praia, sem problema — é só falar.\n\nAbraço,\n{{meunome}}`},
+
+    {id:'t_frio_2',cat:'frio',title:'Frio — elogio específico',
+     subject:'Sobre o seu último vídeo',
+     body:`Oi {{nome}}!\n\nCaí no {{canal}} esses dias e acabei ficando. Você tem uma consistência que é rara — {{inscritos}} inscritos e média de {{views}} views por vídeo mostra que a galera realmente volta.\n\nTrabalho com parcerias e queria conversar sobre uma colaboração. Prefiro perguntar antes de sair mandando proposta genérica: você tem interesse em ouvir?\n\nSe topar, te mando tudo mastigado — valores, formato, prazo.\n\n{{meunome}}`},
+
+    {id:'t_morno_1',cat:'morno',title:'Morno — já teve contato',
+     subject:'Retomando nossa conversa',
+     body:`E aí {{nome}}, beleza?\n\nA gente já trocou uma ideia antes e ficou no ar. Tô voltando porque agora tenho algo mais concreto pra te propor.\n\nO {{canal}} continua crescendo bem e acho que o timing tá melhor do que da última vez. Consigo te explicar em 5 minutos de conversa ou por texto mesmo, como preferir.\n\nBora?\n\n{{meunome}}`},
+
+    {id:'t_f1',cat:'follow1',title:'Follow-up 1 — leve',
+     subject:'Re: parceria com o {{canal}}',
+     body:`Oi {{nome}}, tudo bem?\n\nSó subindo aqui a mensagem que te mandei semana passada — sei que caixa de entrada vira bagunça rápido.\n\nSegue de pé a proposta de parceria com o {{canal}}. Se não for o momento, me avisa que eu paro de encher, sem ressentimento nenhum.\n\nAbraço,\n{{meunome}}`},
+
+    {id:'t_f2',cat:'follow2',title:'Follow-up 2 — última tentativa',
+     subject:'Fechando o assunto',
+     body:`{{nome}}, última mensagem minha sobre isso — prometo.\n\nComo não tive retorno, vou entender que não é o momento e paro por aqui. Nada pessoal, sei bem como é a rotina de quem produz conteúdo.\n\nSe mudar de ideia mais pra frente, é só responder esse email que retomo na hora. A porta fica aberta.\n\nSucesso com o {{canal}}!\n{{meunome}}`},
+
+    {id:'t_int',cat:'interesse',title:'Respondeu interessado',
+     subject:'Detalhes da parceria — {{canal}}',
+     body:`{{nome}}, que ótimo que topou conversar!\n\nSegue o resumo:\n\n• Formato: [preencher]\n• Entrega: [preencher]\n• Prazo: [preencher]\n• Valor: [preencher]\n\nSe algum ponto não fizer sentido pro seu público, me fala — dá pra ajustar. Prefiro adaptar do que forçar algo que não combine com o {{canal}}.\n\nQualquer dúvida é só chamar.\n\n{{meunome}}`},
+
+    {id:'t_close',cat:'encerrar',title:'Encerramento — disse não',
+     subject:'Tudo certo!',
+     body:`Tranquilo, {{nome}} — agradeço a resposta direta, isso vale muito.\n\nVou guardar o {{canal}} aqui e, se aparecer algo que combine mais com a sua linha, te procuro de novo. Sem compromisso nenhum da sua parte.\n\nBoa sorte com os próximos vídeos!\n\n{{meunome}}`},
+
+    {id:'t_dm_curto',cat:'frio',title:'DM curta (Discord/IG)',
+     subject:'',
+     body:`Fala {{nome}}! Curto o {{canal}} há um tempo. Trabalho com parcerias e queria te propor uma colab — posso mandar os detalhes aqui? Se não rolar, de boa.`},
+  ];
+}
+
+function getTemplates(){
+  try{
+    const raw=localStorage.getItem(LS_TPL);
+    if(!raw)return defaultTemplates();
+    const arr=JSON.parse(raw);
+    return Array.isArray(arr)&&arr.length?arr:defaultTemplates();
+  }catch(e){return defaultTemplates()}
+}
+function saveTemplates(list){safeSetItem(LS_TPL,JSON.stringify(list))}
+
+function tplCatLabel(c){
+  const m={frio:'tpl_cat_cold',morno:'tpl_cat_warm',follow1:'tpl_cat_f1',follow2:'tpl_cat_f2',interesse:'tpl_cat_int',encerrar:'tpl_cat_close'};
+  return t(m[c]||'tpl_cat_cold');
+}
+
+function loadTemplatesView(){
+  refreshTplLeadPicker();
+  renderTplList();
+  const list=getTemplates();
+  if(!tplCurrentId||!list.find(x=>x.id===tplCurrentId))tplCurrentId=list[0]?list[0].id:null;
+  loadTplIntoEditor();
+}
+
+function refreshTplLeadPicker(){
+  const sel=$('tpl-lead');if(!sel)return;
+  const cur=sel.value;
+  const leads=State.leads.slice().sort((a,b)=>a.channel_name.localeCompare(b.channel_name));
+  sel.innerHTML=`<option value="">${esc(t('tpl_no_lead'))}</option>`+
+    leads.map(l=>`<option value="${esc(l.channel_id)}">${esc(l.channel_name)}</option>`).join('');
+  if(cur&&leads.some(l=>l.channel_id===cur))sel.value=cur;
+  else if(leads.length)sel.value=leads[0].channel_id; // start filled, not showing raw {{vars}}
+}
+
+function renderTplList(){
+  const host=$('tpl-list');if(!host)return;
+  const filt=$('tpl-cat-filter')?$('tpl-cat-filter').value:'';
+  const list=getTemplates().filter(x=>!filt||x.cat===filt);
+  if(!list.length){host.innerHTML=`<div class="empty" style="padding:24px 12px"><div class="empty-sub">${esc(t('tpl_empty'))}</div></div>`;return}
+  host.innerHTML=list.map(x=>`
+    <button class="tpl-item${x.id===tplCurrentId?' active':''}" onclick="selectTemplate('${esc(x.id)}')">
+      <span class="tpl-item-cat tc-${esc(x.cat)}">${esc(tplCatLabel(x.cat))}</span>
+      <span class="tpl-item-title">${esc(x.title||t('tpl_untitled'))}</span>
+    </button>`).join('');
+}
+
+function selectTemplate(id){
+  const go=()=>{tplCurrentId=id;tplDirty=false;renderTplList();loadTplIntoEditor()};
+  if(tplDirty)appConfirm(t('tpl_unsaved'),go,{tone:'warn',okLabel:t('dlg_discard')});
+  else go();
+}
+
+function loadTplIntoEditor(){
+  const x=getTemplates().find(z=>z.id===tplCurrentId);
+  if(!x){$('tpl-title').value='';$('tpl-subject').value='';$('tpl-body').value='';renderTplPreview();tplHistReset();return}
+  $('tpl-title').value=x.title||'';
+  $('tpl-cat').value=x.cat||'frio';
+  $('tpl-subject').value=x.subject||'';
+  $('tpl-body').value=x.body||'';
+  tplDirty=false;
+  renderTplPreview();
+  tplHistReset();
+}
+
+/* ══ HISTÓRICO DO EDITOR (undo/redo) ══ */
+/* The browser's native Ctrl+Z stack is destroyed whenever we set
+   textarea.value from JS (as insertVar does), so we keep our own. */
+const TPL_HIST_MAX=60;
+let tplHist=[],tplHistPos=-1,tplHistLock=false,tplTypeTimer=null;
+
+function tplSnapshot(){
+  const ta=$('tpl-body');
+  return{
+    title:$('tpl-title')?$('tpl-title').value:'',
+    cat:$('tpl-cat')?$('tpl-cat').value:'frio',
+    subject:$('tpl-subject')?$('tpl-subject').value:'',
+    body:ta?ta.value:'',
+    selStart:ta?ta.selectionStart:0,
+    selEnd:ta?ta.selectionEnd:0
+  };
+}
+
+function tplSameState(a,b){
+  if(!a||!b)return false;
+  return a.title===b.title&&a.cat===b.cat&&a.subject===b.subject&&a.body===b.body;
+}
+
+function tplHistReset(){
+  tplHist=[tplSnapshot()];tplHistPos=0;
+  updateTplHistButtons();
+}
+
+/* immediate=true for discrete actions (inserting a variable);
+   otherwise we debounce so typing doesn't create one entry per keystroke */
+function tplHistPush(immediate){
+  if(tplHistLock)return;
+  clearTimeout(tplTypeTimer);
+  const commit=()=>{
+    const snap=tplSnapshot();
+    if(tplSameState(snap,tplHist[tplHistPos]))return;
+    tplHist=tplHist.slice(0,tplHistPos+1);
+    tplHist.push(snap);
+    if(tplHist.length>TPL_HIST_MAX)tplHist.shift();
+    tplHistPos=tplHist.length-1;
+    updateTplHistButtons();
+  };
+  if(immediate)commit();else tplTypeTimer=setTimeout(commit,450);
+}
+
+function tplApplySnapshot(sn){
+  if(!sn)return;
+  tplHistLock=true;
+  if($('tpl-title'))$('tpl-title').value=sn.title;
+  if($('tpl-cat'))$('tpl-cat').value=sn.cat;
+  if($('tpl-subject'))$('tpl-subject').value=sn.subject;
+  const ta=$('tpl-body');
+  if(ta){
+    ta.value=sn.body;
+    try{ta.focus();ta.selectionStart=sn.selStart;ta.selectionEnd=sn.selEnd}catch(e){}
+  }
+  tplHistLock=false;
+  tplDirty=true;
+  renderTplPreview();
+  updateTplHistButtons();
+}
+
+function tplUndo(){
+  clearTimeout(tplTypeTimer);
+  const snap=tplSnapshot();
+  if(!tplSameState(snap,tplHist[tplHistPos])){
+    tplHist=tplHist.slice(0,tplHistPos+1);
+    tplHist.push(snap);tplHistPos=tplHist.length-1;
+  }
+  if(tplHistPos<=0)return;
+  tplHistPos--;
+  tplApplySnapshot(tplHist[tplHistPos]);
+}
+
+function tplRedo(){
+  clearTimeout(tplTypeTimer);
+  if(tplHistPos>=tplHist.length-1)return;
+  tplHistPos++;
+  tplApplySnapshot(tplHist[tplHistPos]);
+}
+
+function updateTplHistButtons(){
+  const u=$('tpl-undo-btn'),r=$('tpl-redo-btn');
+  if(u)u.disabled=tplHistPos<=0;
+  if(r)r.disabled=tplHistPos>=tplHist.length-1;
+}
+
+function onTplEdit(){tplDirty=true;tplHistPush(false);renderTplPreview()}
+
+function toggleTplEditor(){
+  const c=$('tpl-editor');if(!c)return;
+  c.classList.toggle('open');
+}
+function openTplEditor(){$('tpl-editor')?.classList.add('open')}
+
+function newTemplate(){
+  const list=getTemplates();
+  const id='t_'+Date.now().toString(36);
+  list.unshift({id,cat:$('tpl-cat-filter')?.value||'frio',title:t('tpl_new_name'),subject:'',body:''});
+  saveTemplates(list);tplCurrentId=id;tplDirty=false;
+  renderTplList();loadTplIntoEditor();
+  openTplEditor();
+  $('tpl-title')?.focus();
+}
+
+function saveTemplate(){
+  if(!tplCurrentId)return;
+  const list=getTemplates();
+  const i=list.findIndex(x=>x.id===tplCurrentId);if(i<0)return;
+  list[i]={...list[i],
+    title:$('tpl-title').value.trim()||t('tpl_untitled'),
+    cat:$('tpl-cat').value,
+    subject:$('tpl-subject').value,
+    body:$('tpl-body').value};
+  saveTemplates(list);tplDirty=false;
+  renderTplList();
+  tplFlash('tpl-msg',t('tpl_saved'),'var(--green)');
+}
+
+function duplicateTemplate(){
+  const list=getTemplates();
+  const x=list.find(z=>z.id===tplCurrentId);if(!x)return;
+  const id='t_'+Date.now().toString(36);
+  const copy={...x,id,title:(x.title||'')+' '+t('tpl_copy_suffix')};
+  list.splice(list.indexOf(x)+1,0,copy);
+  saveTemplates(list);tplCurrentId=id;tplDirty=false;
+  renderTplList();loadTplIntoEditor();
+}
+
+function deleteTemplate(){
+  const list=getTemplates();
+  const i=list.findIndex(x=>x.id===tplCurrentId);if(i<0)return;
+  const removed=list[i];
+  list.splice(i,1);
+  saveTemplates(list);
+  tplCurrentId=list[0]?list[0].id:null;tplDirty=false;
+  renderTplList();loadTplIntoEditor();
+  showUndo(t('undo_tpl_deleted',{name:removed.title||''}),()=>{
+    const cur=getTemplates();
+    cur.splice(Math.min(i,cur.length),0,removed);
+    saveTemplates(cur);tplCurrentId=removed.id;
+    renderTplList();loadTplIntoEditor();
+  });
+}
+
+function resetTemplates(){
+  appConfirm(t('tpl_confirm_restore'),()=>{
+    const backup=getTemplates();
+    saveTemplates(defaultTemplates());
+    tplCurrentId=null;tplDirty=false;
+    loadTemplatesView();
+    showUndo(t('undo_tpl_restored'),()=>{saveTemplates(backup);tplCurrentId=null;loadTemplatesView()});
+  },{tone:'warn',okLabel:t('dlg_restore')});
+}
+
+function insertVar(name){
+  const ta=$('tpl-body');if(!ta)return;
+  tplHistPush(true);
+  const tag='{{'+name+'}}';
+  const s0=ta.selectionStart||0,s1=ta.selectionEnd||0;
+  ta.value=ta.value.slice(0,s0)+tag+ta.value.slice(s1);
+  ta.focus();ta.selectionStart=ta.selectionEnd=s0+tag.length;
+  tplDirty=true;
+  tplHistPush(true);
+  renderTplPreview();
+}
+
+function tplVarsFor(lead){
+  const p=getProfile();
+  const me=(p&&p.name)?p.name:t('tpl_you');
+  if(!lead)return{nome:'{{nome}}',canal:'{{canal}}',inscritos:'{{inscritos}}',views:'{{views}}',pais:'{{pais}}',link:'{{link}}',meunome:me};
+  const first=(lead.channel_name||'').trim().split(/\s+/)[0]||lead.channel_name||'';
+  return{
+    nome:first,
+    canal:lead.channel_name||'',
+    inscritos:fmtN(lead.subscribers||0),
+    views:fmtN(lead.avg_views||0),
+    pais:lead.country||'',
+    link:lead.channel_url||'',
+    meunome:me
+  };
+}
+
+function fillVars(text,vars){
+  if(!text)return'';
+  return text.replace(/\{\{\s*(\w+)\s*\}\}/g,(m,k)=>(vars[k]!==undefined?vars[k]:m));
+}
+
+function renderTplPreview(){
+  const leadId=$('tpl-lead')?$('tpl-lead').value:'';
+  const lead=leadId?State.leads.find(l=>l.channel_id===leadId):null;
+  const vars=tplVarsFor(lead);
+  const subj=fillVars($('tpl-subject')?$('tpl-subject').value:'',vars);
+  const body=fillVars($('tpl-body')?$('tpl-body').value:'',vars);
+  const plat=$('tpl-platform')?$('tpl-platform').value:'email';
+
+  const ps=$('tpl-prev-subject');
+  if(ps){
+    if(plat==='email'&&subj){ps.style.display='';ps.innerHTML=`<span class="tpl-prev-lbl">${esc(t('tpl_subject_short'))}</span> ${esc(subj)}`}
+    else{ps.style.display='none';ps.textContent=''}
+  }
+  const pb=$('tpl-prev-body');
+  if(pb){
+    if(!body){pb.textContent=t('tpl_prev_empty')}
+    else{
+      // highlight values that came from the lead, and flag leftover {{vars}}
+      let html;
+      if(lead){
+        // Build ONE alternation of every substituted value, longest first, and
+        // run a single pass. Marking value-by-value would nest <mark> tags
+        // whenever one value contains another (e.g. nome "Ana" inside
+        // canal "Ana Costa Games").
+        const vals=[...new Set(Object.values(vars))]
+          .filter(v=>v&&String(v).length>1)
+          .sort((a,b)=>String(b).length-String(a).length)
+          .map(v=>esc(String(v)).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+        if(vals.length){
+          const re=new RegExp('('+vals.join('|')+')','g');
+          html=esc(body).replace(re,'<mark class="tpl-fill">$1</mark>');
+        }else html=esc(body);
+      }else html=esc(body);
+      html=html.replace(/\{\{\s*\w+\s*\}\}/g,m=>`<span class="tpl-unfilled">${m}</span>`);
+      pb.innerHTML=html;
+    }
+  }
+
+  // banner telling the user what state they're in
+  const hint=$('tpl-prev-hint');
+  if(hint){
+    if(lead){hint.className='tpl-prev-hint filled';hint.textContent=t('tpl_hint_filled',{name:lead.channel_name})}
+    else{hint.className='tpl-prev-hint';hint.textContent=t('tpl_hint_pick')}
+  }
+
+  const lim=TPL_LIMITS[plat]||0;
+  const cc=$('tpl-charcount');
+  if(cc){
+    const n=body.length;
+    if(lim){
+      cc.textContent=n+' / '+lim;
+      cc.classList.toggle('over',n>lim);
+    }else{cc.textContent=n+' '+t('tpl_chars');cc.classList.remove('over')}
+  }
+  const note=$('tpl-limit-note');
+  if(note)note.textContent=lim?t('tpl_limit_note',{n:lim}):t('tpl_limit_none');
+
+  const mb=$('tpl-mailto');
+  if(mb)mb.style.display=(plat==='email'&&lead&&lead.email)?'':'none';
+}
+
+function tplFlash(id,msg,color){
+  const m=$(id);if(!m)return;
+  m.style.color=color||'var(--green)';m.textContent=msg;
+  setTimeout(()=>{if(m)m.textContent=''},2600);
+}
+
+function tplCopy(text,okMsg){
+  const done=()=>tplFlash('tpl-copy-msg',okMsg,'var(--green)');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>tplCopyFallback(text,done));
+  }else tplCopyFallback(text,done);
+}
+function tplCopyFallback(text,done){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');done()}catch(e){tplFlash('tpl-copy-msg',t('tpl_copy_err'),'var(--red)')}
+  document.body.removeChild(ta);
+}
+
+function copyTplBody(){
+  const b=$('tpl-prev-body');if(!b)return;
+  // textContent strips the highlight markup, so the clipboard stays clean
+  tplCopy(b.textContent||'',t('tpl_copied'));
+}
+function copyTplAll(){
+  const subj=$('tpl-prev-subject')?.textContent||'';
+  const body=$('tpl-prev-body')?.textContent||'';
+  tplCopy((subj?subj+'\n\n':'')+body,t('tpl_copied_all'));
+}
+function openTplMailto(){
+  const leadId=$('tpl-lead')?$('tpl-lead').value:'';
+  const lead=leadId?State.leads.find(l=>l.channel_id===leadId):null;
+  if(!lead||!lead.email)return;
+  const vars=tplVarsFor(lead);
+  const subj=fillVars($('tpl-subject').value,vars);
+  const body=fillVars($('tpl-body').value,vars);
+  window.location.href='mailto:'+encodeURIComponent(lead.email)+
+    '?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+}
+
+
+/* ══ DIÁLOGOS DO APP (substituem alert/confirm nativos) ══ */
+/* Native confirm() blocks the thread and returns a boolean; a styled modal
+   cannot. So these take an onOk callback instead of returning a value. */
+let _dlgPrevFocus=null;
+
+function _dlgEnsure(){
+  let ov=document.getElementById('app-dialog');
+  if(ov)return ov;
+  ov=document.createElement('div');
+  ov.className='overlay app-dialog';ov.id='app-dialog';
+  ov.innerHTML=`
+    <div class="modal dlg-modal" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title">
+      <div class="dlg-icon" id="dlg-icon"></div>
+      <h2 class="dlg-title" id="dlg-title"></h2>
+      <div class="dlg-body" id="dlg-body"></div>
+      <pre class="dlg-pre" id="dlg-pre" style="display:none"></pre>
+      <div class="dlg-actions" id="dlg-actions"></div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{if(e.target===ov)_dlgClose()});
+  return ov;
+}
+
+function _dlgClose(){
+  const ov=document.getElementById('app-dialog');
+  if(ov)ov.classList.remove('open');
+  document.removeEventListener('keydown',_dlgKey,true);
+  if(_dlgPrevFocus&&_dlgPrevFocus.focus){try{_dlgPrevFocus.focus()}catch(e){}}
+  _dlgPrevFocus=null;
+}
+
+function _dlgKey(e){
+  const ov=document.getElementById('app-dialog');
+  if(!ov||!ov.classList.contains('open'))return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();
+    const c=ov.querySelector('[data-dlg-cancel]');if(c)c.click();else _dlgClose();return}
+  if(e.key==='Tab'){ // keep focus inside the dialog
+    const f=ov.querySelectorAll('button');
+    if(!f.length)return;
+    const first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+  }
+}
+
+const DLG_ICONS={
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  danger:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+};
+
+/* opts: {title, body, pre, tone, okLabel, cancelLabel, onOk, onCancel} */
+function appDialog(opts){
+  const o=opts||{};
+  const ov=_dlgEnsure();
+  const tone=o.tone||'info';
+  _dlgPrevFocus=document.activeElement;
+
+  const ic=document.getElementById('dlg-icon');
+  ic.className='dlg-icon dlg-'+tone;
+  ic.innerHTML=DLG_ICONS[tone]||DLG_ICONS.info;
+
+  document.getElementById('dlg-title').textContent=o.title||'';
+  const bodyEl=document.getElementById('dlg-body');
+  bodyEl.innerHTML='';
+  (o.body||'').split('\n').forEach(line=>{
+    const p=document.createElement('p');
+    p.textContent=line;
+    if(!line.trim())p.className='dlg-gap';
+    bodyEl.appendChild(p);
+  });
+
+  const pre=document.getElementById('dlg-pre');
+  if(o.pre){pre.style.display='';pre.textContent=o.pre}
+  else{pre.style.display='none';pre.textContent=''}
+
+  const act=document.getElementById('dlg-actions');
+  act.innerHTML='';
+  if(o.cancelLabel!==null){
+    const c=document.createElement('button');
+    c.className='btn btn-sm';c.setAttribute('data-dlg-cancel','1');
+    c.textContent=o.cancelLabel||t('dlg_cancel');
+    c.onclick=()=>{_dlgClose();if(o.onCancel)o.onCancel()};
+    act.appendChild(c);
+  }
+  const ok=document.createElement('button');
+  ok.className='btn btn-sm '+(tone==='danger'||tone==='error'?'btn-danger-solid':'btn-primary');
+  ok.textContent=o.okLabel||t('dlg_ok');
+  ok.onclick=()=>{_dlgClose();if(o.onOk)o.onOk()};
+  act.appendChild(ok);
+
+  ov.classList.add('open');
+  document.addEventListener('keydown',_dlgKey,true);
+  setTimeout(()=>ok.focus(),40);
+}
+
+/* drop-in helpers */
+function appAlert(msg,opts){
+  const o=opts||{};
+  appDialog({title:o.title||t('dlg_notice'),body:msg,pre:o.pre,
+    tone:o.tone||'info',okLabel:o.okLabel,cancelLabel:null,onOk:o.onOk});
+}
+function appConfirm(msg,onOk,opts){
+  const o=opts||{};
+  appDialog({title:o.title||t('dlg_confirm'),body:msg,tone:o.tone||'warn',
+    okLabel:o.okLabel||t('dlg_yes'),cancelLabel:o.cancelLabel||t('dlg_cancel'),
+    onOk:onOk,onCancel:o.onCancel});
+}
+
+/* ══ UNDO / TOAST ══ */
+let undoTimer=null,undoState=null;
+
+function showUndo(msg,restoreFn,ms){
+  clearTimeout(undoTimer);
+  undoState={restore:restoreFn};
+  let host=document.getElementById('undo-toast');
+  if(!host){
+    host=document.createElement('div');
+    host.id='undo-toast';host.className='undo-toast';
+    document.body.appendChild(host);
+  }
+  const dur=ms||6000;
+  host.innerHTML=`
+    <span class="undo-msg">${esc(msg)}</span>
+    <button class="undo-btn" onclick="doUndo()">${esc(t('undo'))}</button>
+    <button class="undo-x" onclick="dismissUndo()" aria-label="${esc(t('undo_dismiss'))}">✕</button>
+    <span class="undo-bar" style="animation-duration:${dur}ms"></span>`;
+  requestAnimationFrame(()=>host.classList.add('show'));
+  undoTimer=setTimeout(dismissUndo,dur);
+}
+
+function doUndo(){
+  if(undoState&&typeof undoState.restore==='function'){
+    try{undoState.restore()}catch(e){}
+  }
+  dismissUndo();
+}
+
+function dismissUndo(){
+  clearTimeout(undoTimer);undoState=null;
+  const host=document.getElementById('undo-toast');
+  if(host){host.classList.remove('show');setTimeout(()=>{if(host&&!host.classList.contains('show'))host.innerHTML=''},220)}
+}
+
+function quickStage(cid,s){
+  const l=State.leads.find(l=>l.channel_id===cid);if(!l)return;
+  const prev=l.status,name=l.channel_name;
+  l.status=s;persistLeads();renderLeads();renderDash();
+  showUndo(t('undo_stage',{name:name,stage:stageLabelOf(s)}),()=>{
+    const x=State.leads.find(z=>z.channel_id===cid);
+    if(x){x.status=prev;persistLeads();renderLeads();renderDash()}
+  });
+}
+function stageLabelOf(s){
+  const m={novo:'stage_new',contatado:'stage_contacted',negociacao:'stage_talks',cliente:'stage_client',recusado:'stage_declined'};
+  return t(m[s]||'stage_new');
+}
 function saveNotes(cid){const l=State.leads.find(l=>l.channel_id===cid);if(l){l.notes=$('d-notes').value;persistLeads();closeModal('m-detail');renderLeads()}}
-function delLead(cid){if(!confirm(t('confirm_delete_creator')))return;State.leads=State.leads.filter(l=>l.channel_id!==cid);persistLeads();closeModal('m-detail');renderLeads()}
+function delLead(cid){
+  const idx=State.leads.findIndex(l=>l.channel_id===cid);if(idx<0)return;
+  const removed=State.leads[idx];
+  State.leads.splice(idx,1);persistLeads();closeModal('m-detail');renderLeads();renderDash();
+  showUndo(t('undo_deleted',{name:removed.channel_name}),()=>{
+    State.leads.splice(Math.min(idx,State.leads.length),0,removed);
+    persistLeads();renderLeads();renderDash();
+  });
+}
 
 /* ══ EXPORT ══ */
 function exportLeads(fmt){
-  const leads=filteredLeads();if(!leads.length){alert(t('no_creators_export'));return}
+  const leads=filteredLeads();if(!leads.length){appAlert(t('no_creators_export'),{tone:'warn'});return}
   const ts=new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
   if(fmt==='json'){download(new Blob([JSON.stringify({exported_at:new Date().toISOString(),total:leads.length,leads},null,2)],{type:'application/json'}),`creators_${ts}.json`)}
   else{const cols=['channel_name','channel_url','subscribers','avg_views','video_count','score','status','email','discord','twitter','instagram','tiktok','website','linkedin','country','language','posting_frequency','last_video_date','notes'];const hdr=[t('col_channel'),t('col_url'),t('col_subscribers'),t('col_avgviews'),t('col_videos'),t('col_score'),t('col_stage'),t('col_email'),t('col_discord'),t('col_twitter'),t('col_instagram'),t('col_tiktok'),t('col_website'),t('col_linkedin'),t('col_country'),t('col_language'),t('col_freq'),t('col_lastvideo'),t('col_notes')];const cell=v=>{v=String(v==null?'':v);return/[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};const rows=[hdr.join(','),...leads.map(l=>cols.map(c=>cell(l[c])).join(','))];download(new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8'}),`creators_${ts}.csv`)}
@@ -2040,7 +3604,7 @@ function renderDash(){
     {v:by('contatado'),l:t('kpi_contacted'),c:'var(--status-contatado)'}
   ].map(x=>`<div class="kpi"><div class="kpi-value" style="color:${x.c}">${x.v}</div><div class="kpi-label">${x.l}</div><div class="kpi-accent" style="background:${x.c}"></div></div>`).join('');
   const top=[...L].sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10);
-  $('d-top').innerHTML=top.length?top.map(l=>`<tr><td><a href="${l.channel_url}" target="_blank" class="link">${esc(l.channel_name)}</a></td><td class="t-r muted">${fmtN(l.subscribers)}</td><td class="t-c"><b style="color:${scoreColor(l.score)}">${l.score}</b></td></tr>`).join(''):`<tr><td colspan="3"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">${t('empty_no_creators_title')}</div></div></td></tr>`;
+  $('d-top').innerHTML=top.length?top.map(l=>`<tr><td><a href="${safeUrl(l.channel_url)}" target="_blank" rel="noopener noreferrer" class="link">${esc(l.channel_name)}</a></td><td class="t-r muted">${fmtN(l.subscribers)}</td><td class="t-c"><b style="color:${scoreColor(l.score)}">${l.score}</b></td></tr>`).join(''):`<tr><td colspan="3"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">${t('empty_no_creators_title')}</div></div></td></tr>`;
   $('d-funnel').innerHTML=[[t('stage_new'),by('novo'),'var(--status-novo)'],[t('stage_contacted'),by('contatado'),'var(--status-contatado)'],[t('stage_talks'),by('negociacao'),'var(--status-negociacao)'],[t('stage_client'),by('cliente'),'var(--status-cliente)'],[t('stage_declined'),by('recusado'),'var(--status-recusado)']].map(([la,c,col])=>{const p=tot?Math.round(c/tot*100):0;return`<div class="funnel-row"><span class="funnel-label" style="color:${col}">${la}</span><div class="funnel-track"><div class="funnel-fill" style="width:${p}%;background:${col}"></div></div><span class="funnel-val">${c} · ${p}%</span></div>`}).join('');
 }
 
@@ -2050,17 +3614,63 @@ function renderHist(){
   if(!State.hist.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty"><div class="empty-icon">○</div><div class="empty-title">${t('empty_no_searches_title')}</div></div></td></tr>`;return}
   tb.innerHTML=State.hist.map(h=>`<tr><td class="muted mini">${(h.ts||'').slice(0,16).replace('T',' ')}</td><td style="font-weight:600">${esc(h.query)}</td><td class="t-c"><b style="color:var(--green)">${h.results}</b></td><td class="t-c"><span class="status-pill s-cliente">${t('status_done')}</span></td></tr>`).join('');
 }
-function clearHist(){if(!confirm(t('confirm_clear_history')))return;State.hist=[];persistHist();renderHist()}
+function clearHist(){
+  appConfirm(t('confirm_clear_history'),()=>{State.hist=[];persistHist();renderHist()},
+    {tone:'danger',okLabel:t('dlg_clear')});
+}
 
 /* ══ AUTH ══ */
 const LS_PROFILE='jb_profile';
 async function sha256(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')}
-function getProfile(){try{return JSON.parse(localStorage.getItem(LS_PROFILE))}catch(e){return null}}
-function saveProfileData(p){localStorage.setItem(LS_PROFILE,JSON.stringify(p))}
+const LS_PROFILE_BAK='jb_profile_bak';
+
+function getProfile(){
+  const read=k=>{
+    try{
+      const raw=localStorage.getItem(k);
+      if(!raw)return null;
+      const o=JSON.parse(raw);
+      // a valid profile must at least carry a password hash
+      if(o&&typeof o==='object'&&o.passHash)return o;
+      return null;
+    }catch(e){return null}
+  };
+  let p=read(LS_PROFILE);
+  if(p)return p;
+  // primary missing or corrupted -> fall back to the mirror
+  const bak=read(LS_PROFILE_BAK);
+  if(bak){
+    console.warn('Primary profile missing/corrupt — restored from backup copy.');
+    try{localStorage.setItem(LS_PROFILE,JSON.stringify(bak))}catch(e){}
+    return bak;
+  }
+  return null;
+}
+
+function saveProfileData(p){
+  const json=JSON.stringify(p);
+  // write the mirror FIRST, so a mid-write failure never leaves us with nothing
+  try{localStorage.setItem(LS_PROFILE_BAK,json)}catch(e){}
+  const ok=safeSetItem(LS_PROFILE,json);
+  if(ok){
+    // verify the write actually landed and is readable
+    try{
+      const back=localStorage.getItem(LS_PROFILE);
+      if(!back||back!==json){throw new Error('verify mismatch')}
+    }catch(e){
+      console.error('Profile write could not be verified.',e);
+      notifyStorageFull(LS_PROFILE);
+      return false;
+    }
+  }
+  return ok;
+}
 function initials(name){return(name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('')||'?'}
 function checkAuth(){
+  const fp=document.getElementById('forgot-panel');if(fp)fp.classList.remove('open');
+  const fm=document.getElementById('forgot-msg');if(fm)fm.textContent='';
   const p=getProfile();
-  if(!p){$('auth-sub').textContent=t('auth_create_pass_msg');$('auth-setup').style.display='';$('auth-unlock').style.display='none'}
+  if(!p){$('auth-sub').textContent=t('auth_create_pass_msg');$('auth-setup').style.display='';$('auth-unlock').style.display='none';setTimeout(()=>document.getElementById('setup-name')?.focus(),50)}
   else{$('auth-sub').textContent=t('auth_welcome_back',{name:esc(p.name||'')});$('auth-setup').style.display='none';$('auth-unlock').style.display='';setTimeout(()=>document.getElementById('unlock-pass')?.focus(),50)}
 }
 async function doSetup(){
@@ -2078,6 +3688,184 @@ async function doUnlock(){
 }
 function unlockUI(profile){document.body.classList.remove('locked');$('auth-overlay').classList.remove('open');$('unlock-pass').value='';$('setup-pass').value='';loadProfileView()}
 function lockApp(){document.body.classList.add('locked');$('auth-overlay').classList.add('open');checkAuth()}
+
+/* ══ ESQUECEU A SENHA ══ */
+function toggleForgot(){
+  const p=$('forgot-panel');if(!p)return;
+  p.classList.toggle('open');
+  if($('forgot-msg'))$('forgot-msg').textContent='';
+}
+
+function buildRecoveryNote(){
+  const p=getProfile();
+  const now=new Date().toLocaleString('pt-BR');
+  return [
+    "JOTA'S BRAIN - RECUPERACAO DE ACESSO",
+    "=====================================",
+    "Gerado em: "+now,
+    p&&p.name?("Perfil atual: "+p.name):"Perfil atual: (nenhum)",
+    "",
+    "POR QUE A SENHA NAO PODE SER MOSTRADA",
+    "-------------------------------------",
+    "A senha nunca e salva em texto. O app guarda apenas o hash",
+    "SHA-256 dela dentro do localStorage do navegador, na chave",
+    "'jb_profile'. Hash e um caminho de mao unica: da pra conferir",
+    "se a senha digitada bate, mas nao da pra voltar do hash para",
+    "a senha original. Nem o app, nem voce, nem ninguem.",
+    "",
+    "COMO VOLTAR A ENTRAR (passo a passo)",
+    "------------------------------------",
+    "1. Abra o index.html no navegador.",
+    "2. Aperte F12 (ou Ctrl+Shift+I) para abrir o DevTools.",
+    "3. Va na aba 'Application' (no Firefox: 'Armazenamento').",
+    "4. No menu da esquerda: Local Storage > selecione este site.",
+    "5. Ache as chaves: jb_profile  e  jb_profile_bak",
+    "6. Apague as DUAS (botao direito > Delete em cada uma).",
+    "7. Feche o DevTools e recarregue a pagina (F5).",
+    "8. A tela 'Criar acesso' vai aparecer. Cadastre nome e senha nova.",
+    "",
+    "ATALHO",
+    "------",
+    "Na propria tela de login, em 'Esqueceu sua senha?', existe o",
+    "botao 'Apagar perfil e recomecar'. Ele faz os passos 5 a 7",
+    "automaticamente. Pede confirmacao antes.",
+    "",
+    "O QUE VOCE PERDE",
+    "----------------",
+    "Perde: nome do perfil, senha, foto e links sociais do perfil.",
+    "MANTEM: leads, historico de buscas e configuracoes.",
+    "Essas coisas ficam em chaves separadas (pr_leads, pr_hist, pr_cfg)",
+    "e nao sao tocadas pelo reset.",
+    "",
+    "DICA PRA NAO PASSAR POR ISSO DE NOVO",
+    "------------------------------------",
+    "Escreva a senha aqui embaixo e guarde este arquivo num lugar",
+    "seguro (nao na area de trabalho compartilhada).",
+    "",
+    "MINHA SENHA: ______________________________",
+    "",
+    "====================================="
+  ].join("\n");
+}
+
+function downloadRecoveryNote(){
+  try{
+    const blob=new Blob([buildRecoveryNote()],{type:'text/plain;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='jotas-brain-recuperar-senha.txt';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    const m=$('forgot-msg');
+    if(m){m.style.color='var(--green)';m.textContent=t('forgot_dl_ok');setTimeout(()=>{m.textContent=''},3000)}
+  }catch(e){
+    const m=$('forgot-msg');
+    if(m){m.style.color='var(--red)';m.textContent=t('forgot_dl_err')}
+  }
+}
+
+function resetProfileAccess(){
+  if(_resetRunning)return;               // guard: ignore repeat clicks
+  appConfirm(t('forgot_confirm'),_doFullReset,{tone:'danger',okLabel:t('dlg_erase')});
+}
+
+/* Every key this app persists. Anything added later must be listed here
+   or a "wipe everything" reset would silently leave it behind. */
+function allAppStorageKeys(){
+  const known=[LS_PROFILE,LS_PROFILE_BAK,LS_TPL,LS.leads,LS.hist,LS.cfg];
+  const out=new Set(known);
+  // sweep any other key belonging to this app, in case one was added elsewhere
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&(k.indexOf('jb_')===0||k.indexOf('pr_')===0))out.add(k);
+    }
+  }catch(e){}
+  return[...out];
+}
+
+let _resetRunning=false;
+
+function _doFullReset(){
+  if(_resetRunning)return;
+  _resetRunning=true;
+
+  // disable the button so it cannot be fired again mid-wipe
+  const btn=document.querySelector("button[onclick='resetProfileAccess()']");
+  if(btn){btn.disabled=true;btn.classList.add('is-busy')}
+  const m=$('forgot-msg');
+  if(m){m.style.color='var(--ink3)';m.textContent=t('forgot_reset_working')}
+
+  let failed=null;
+  try{
+    allAppStorageKeys().forEach(k=>localStorage.removeItem(k));
+    // verify the wipe actually took effect
+    const left=allAppStorageKeys().filter(k=>localStorage.getItem(k)!==null);
+    if(left.length)throw new Error('keys survived: '+left.join(', '));
+  }catch(e){failed=e}
+
+  if(failed){
+    _resetRunning=false;
+    if(btn){btn.disabled=false;btn.classList.remove('is-busy')}
+    if(m){m.style.color='var(--red)';m.textContent=t('forgot_reset_err')}
+    appAlert(t('forgot_reset_err_body'),{tone:'error',title:t('dlg_error'),pre:String(failed.message||failed)});
+    return;
+  }
+
+  // reset in-memory state to first-run defaults
+  State.leads=[];State.hist=[];State.results=[];State.favOnly=false;State.quota=0;
+  State.cfg={keys:[],keyIdx:0,theme:'dark',lang:'pt-BR'};
+  tplCurrentId=null;tplDirty=false;
+  storageFullShown=false;
+
+  if(m){m.style.color='var(--green)';m.textContent=t('forgot_reset_ok')}
+
+  setTimeout(()=>{
+    try{
+      // tear down anything left on screen
+      dismissUndo();
+      _dlgClose();
+      const sa=document.getElementById('storage-alert');if(sa)sa.remove();
+      document.querySelectorAll('.overlay.open').forEach(ov=>{
+        if(ov.id!=='auth-overlay')ov.classList.remove('open');
+      });
+      const fp=$('forgot-panel');if(fp)fp.classList.remove('open');
+      if(m)m.textContent='';
+
+      // clear every auth field and message
+      ['unlock-pass','setup-pass','setup-name'].forEach(id=>{const e=$(id);if(e)e.value=''});
+      const um=$('unlock-msg');if(um)um.textContent='';
+      const sm=$('setup-msg');if(sm)sm.textContent='';
+
+      // Re-render the app empty. Note: applyTheme()/setLanguage() both call
+      // persistCfg(), which would recreate pr_cfg right after we deleted it —
+      // so the defaults are applied to the DOM directly instead.
+      document.documentElement.setAttribute('data-theme',State.cfg.theme);
+      document.documentElement.setAttribute('lang',State.cfg.lang);
+      applyI18n();refreshDynamicI18n();
+      if(typeof renderThemeGrid==='function')renderThemeGrid();
+      renderLeads();renderHist();renderDash();
+      renderKeysList();refreshQuotaUI();
+      $('results').style.display='none';
+      $('channel-list').innerHTML='';
+      $('log').innerHTML='';
+      {const w=$('welcome');if(w)w.style.display=''}
+      switchView('discover');
+
+      // back to first-run: locked, showing "create access"
+      document.body.classList.add('locked');
+      $('auth-overlay').classList.add('open');
+      checkAuth();
+    }catch(e){
+      console.error('Reset UI rebuild failed',e);
+    }finally{
+      if(btn){btn.disabled=false;btn.classList.remove('is-busy')}
+      _resetRunning=false;
+    }
+  },600);
+}
+
 function loadProfileView(){
   const p=getProfile();if(!p)return;
   $('pf-name').value=p.name||'';$('pf-company').value=p.company||'';$('pf-bio').value=p.bio||'';
@@ -2242,12 +4030,19 @@ function detectNiche(qNorm){
   return null;
 }
 function buildSuggestions(rawQ){
-  const qNorm=normalizeQ(rawQ);
+  // With comma syntax the user may be mid-way through a later term, so
+  // suggestions must extend the LAST term and keep the earlier ones intact.
+  const parts=String(rawQ).split(',');
+  const head=parts.slice(0,-1).map(x=>x.trim()).filter(Boolean);
+  const tail=parts[parts.length-1].trim();
+  const base=head.length?head[0]:tail;      // the niche drives the bank
+  const qNorm=normalizeQ(base);
   const niche=detectNiche(qNorm);
-  const seed=hashStr(qNorm);
+  const seed=hashStr(normalizeQ(rawQ));
   const bank=(niche&&NICHE_BANK[niche])?NICHE_BANK[niche]:GENERIC_INTENTS;
   const words=seededShuffle(bank,seed).slice(0,8);
-  return words.map(w=>`${rawQ} ${w}`);
+  const prefix=head.length?head.join(', ')+', ':'';
+  return words.map(w=>tail?`${prefix}${tail} ${w}`:`${prefix}${w}`);
 }
 let acTimer=null,acVisible=false;
 function onSearchInput(val){
@@ -2258,13 +4053,88 @@ function onSearchInput(val){
 function showAC(q){
   const list=$('autocomplete-list');if(!list)return;
   const suggestions=buildSuggestions(q);
-  list.innerHTML=suggestions.map(s=>`<div class="autocomplete-item" onclick="selectAC('${s.replace(/'/g,"\\\\'")}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>${s}</div>`).join('');
+  // Escaping a quote into an inline onclick breaks the HTML parser for any
+  // suggestion containing an apostrophe ("it's a test"). Carry the value in a
+  // data attribute and read it from a listener instead.
+  list.innerHTML=suggestions.map(s=>`<div class="autocomplete-item" data-val="${esc(s)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>${esc(s)}</div>`).join('');
+  list.querySelectorAll('.autocomplete-item').forEach(el=>{
+    el.addEventListener('click',()=>selectAC(el.getAttribute('data-val')||''));
+  });
   list.classList.add('open');acVisible=true;
 }
 function hideAC(){const list=$('autocomplete-list');if(list){list.classList.remove('open');}acVisible=false;}
 function selectAC(val){$('q').value=val;hideAC();}
 function handleSearchKey(e){if(e.key==='Enter'){hideAC();runSearch();}}
 document.addEventListener('click',e=>{if(!e.target.closest('.search-bar-wrap'))hideAC();});
+
+
+/* ══ TERMOS SEPARADOS POR VÍRGULA ══
+   "minecraft, minecraft smp, hardcore" is ONE search, not three. The first
+   term is the parent niche; the rest refine it. Every term after the first
+   is combined WITH the niche before hitting the API, so a bare refinement
+   like "smp" or "survival" can never drift into unrelated topics. */
+const MAX_TERMS=4;
+
+function parseQuery(raw){
+  const parts=String(raw||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(!parts.length)return{niche:'',refinements:[],all:[]};
+  const niche=parts[0];
+  const seen=new Set([niche.toLowerCase()]);
+  const refinements=[];
+  for(let i=1;i<parts.length&&refinements.length<MAX_TERMS-1;i++){
+    const p=parts[i];const low=p.toLowerCase();
+    if(seen.has(low))continue;
+    seen.add(low);refinements.push(p);
+  }
+  return{niche,refinements,all:[niche,...refinements]};
+}
+
+/* Each refinement is sent combined with the niche. */
+function buildQueryVariants(raw){
+  const q=parseQuery(raw);
+  if(!q.niche)return[];
+  if(!q.refinements.length)return[q.niche];
+  const out=[];
+  q.refinements.forEach(r=>{
+    const low=r.toLowerCase(),n=q.niche.toLowerCase();
+    // "minecraft smp" already contains the niche — don't duplicate it
+    out.push(low.includes(n)?r:(q.niche+' '+r));
+  });
+  out.push(q.niche);
+  return[...new Set(out)];
+}
+
+/* ── Relevance gate ──
+   The niche must appear in the channel's own text. When refinements are
+   given, at least one must appear too. This is what stops unrelated
+   channels leaking through when several terms are used. */
+function tokenize(str){
+  return String(str||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .split(/[^a-z0-9]+/).filter(w=>w.length>2);
+}
+function buildRelevance(raw){
+  const q=parseQuery(raw);
+  const nicheTokens=tokenize(q.niche);
+  const refTokens=q.refinements.map(r=>{
+    // strip tokens the niche already has, so "minecraft smp" tests on "smp"
+    const own=tokenize(r).filter(w=>!nicheTokens.includes(w));
+    return own.length?own:tokenize(r);
+  }).filter(a=>a.length);
+  return{nicheTokens,refTokens,active:nicheTokens.length>0};
+}
+function leadText(l){
+  return [l.channel_name,l.description,l.language].join(' ').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function relevanceCheck(l,rel){
+  if(!rel||!rel.active)return null;
+  const hay=leadText(l);
+  if(!rel.nicheTokens.some(tok=>hay.includes(tok)))return t('reason_off_niche');
+  if(!rel.refTokens.length)return null;
+  if(!rel.refTokens.some(group=>group.some(tok=>hay.includes(tok))))return t('reason_off_terms');
+  return null;
+}
 
 /* ══ DUAL COUNTRY FILTER ══ */
 function selectedCountries(){
@@ -2280,13 +4150,31 @@ function handleAvatarUpload(input){
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX=1080;
+      // Avatar is displayed at most ~96px, so 256px is plenty.
+      // Storing a 1080px JPEG as base64 could eat ~1MB of the ~5MB
+      // localStorage budget and silently break every later write.
+      const MAX=256;
       let w=img.width,h=img.height;
       if(w>MAX||h>MAX){const r=Math.min(MAX/w,MAX/h);w=Math.round(w*r);h=Math.round(h*r);}
       const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const dataUrl=canvas.toDataURL('image/jpeg',0.85);
-      const p=getProfile();if(p){p.avatar=dataUrl;saveProfileData(p);}
+      const ctx=canvas.getContext('2d');
+      ctx.imageSmoothingQuality='high';
+      ctx.drawImage(img,0,0,w,h);
+      let dataUrl=canvas.toDataURL('image/jpeg',0.72);
+      // hard ceiling: ~120KB of base64. Step quality down if still too big.
+      let q=0.72;
+      while(dataUrl.length>120000&&q>0.4){q-=0.1;dataUrl=canvas.toDataURL('image/jpeg',q)}
+      const p=getProfile();
+      if(p){
+        const prev=p.avatar;
+        p.avatar=dataUrl;
+        if(saveProfileData(p)===false){
+          // rolled back: keep the old avatar rather than losing the profile
+          p.avatar=prev;saveProfileData(p);
+          renderAvatar(prev);
+          return;
+        }
+      }
       renderAvatar(dataUrl);
     };
     img.src=e.target.result;
@@ -2358,7 +4246,7 @@ let pixQR=null;
 function openSupportModal(){
   document.querySelectorAll('.pix-value-btn').forEach(b=>b.classList.remove('selected'));
   $('pix-result').style.display='none';
-  $('pix-qr').innerHTML='';
+  $('pix-qr').innerHTML='';$('pix-qr').style.display='';pixQR=null;
   $('pix-copied-msg').textContent='';
   openModal('m-support');
 }
@@ -2366,14 +4254,32 @@ function selectPixValue(value,btn){
   document.querySelectorAll('.pix-value-btn').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected');
   const code=PIX_CODES[value];
+  if(!code)return;
   $('pix-code-text').textContent=code;
   $('pix-qr').innerHTML='';
-  pixQR=new QRCode($('pix-qr'),{text:code,width:176,height:176,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  pixQR=null;
+  // The QR library comes from a CDN. Offline (or inside a packaged build)
+  // it is simply absent — that must not stop the PIX code from being shown
+  // and copied, which is the part that actually matters.
+  const box=$('pix-qr');
+  if(typeof QRCode!=='undefined'){
+    try{
+      pixQR=new QRCode(box,{text:code,width:176,height:176,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+      box.style.display='';
+    }catch(e){box.innerHTML='';box.style.display='none';console.warn('QR render failed',e)}
+  }else{
+    box.style.display='none';
+  }
   $('pix-copied-msg').textContent='';
   $('pix-result').style.display='';
 }
 function copyPixCode(){
   const code=$('pix-code-text').textContent;
+  if(!code){                       // nothing selected yet — don't fake success
+    const msg=$('pix-copied-msg');
+    if(msg){msg.textContent=t('pix_pick_value');setTimeout(()=>{msg.textContent=''},2200)}
+    return;
+  }
   const showFeedback=()=>{
     const msg=$('pix-copied-msg');
     msg.textContent=t('pix_copied');
@@ -2393,9 +4299,21 @@ function copyPixCode(){
     document.body.removeChild(ta);showFeedback();
   }
 }
+/* Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z inside the template editor */
+document.addEventListener('keydown',e=>{
+  const k=e.key?e.key.toLowerCase():'';
+  if((e.ctrlKey||e.metaKey)&&(k==='z'||k==='y')){
+    const el=e.target;
+    if(!el||!el.id)return;
+    if(el.id!=='tpl-body'&&el.id!=='tpl-title'&&el.id!=='tpl-subject')return;
+    e.preventDefault();
+    if(k==='y'||e.shiftKey)tplRedo();else tplUndo();
+  }
+});
+
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    document.querySelectorAll('.overlay.open').forEach(ov=>{if(ov.id!=='auth-overlay')ov.classList.remove('open')});
+    document.querySelectorAll('.overlay.open').forEach(ov=>{if(ov.id!=='auth-overlay'&&ov.id!=='app-dialog')ov.classList.remove('open')});
   }
 });
 
