@@ -1254,10 +1254,14 @@ mark.tpl-fill{
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           <span data-i18n="reset_filters">Reset filters</span>
         </button>
+        <button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="resetShown()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/></svg>
+          <span data-i18n="reset_shown">Allow repeating channels</span>
+        </button>
       </div>
 
       <div class="run-controls">
-        <button class="btn btn-primary" id="btn-search" onclick="runSearch()" style="flex:1">
+        <button class="btn btn-primary" id="btn-search" onclick="this.blur();runSearch()" style="flex:1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <span data-i18n="btn_search">Search</span>
         </button>
@@ -1703,7 +1707,25 @@ mark.tpl-fill{
 <script>
 "use strict";
 /* ══ STATE ══ */
-const LS={leads:'pr_leads',hist:'pr_hist',cfg:'pr_cfg'};
+const LS={leads:'pr_leads',hist:'pr_hist',cfg:'pr_cfg',shown:'pr_shown'};
+/* ══ CANAIS JÁ ENTREGUES ══
+   Memória dos canais que JÁ apareceram em algum resultado, mesmo que o
+   usuário não os tenha salvo no pipeline. Sem isso, repetir a busca devolvia
+   os mesmos canais — o "hideSeen" só conhecia os SALVOS, e ele é um checkbox
+   desmarcado por padrão. Persistido para valer entre sessões. */
+const MAX_SHOWN=5000;
+function loadShown(){
+  try{const a=JSON.parse(localStorage.getItem(LS.shown))||[];return new Set(a)}
+  catch(e){return new Set()}
+}
+function saveShown(set){
+  try{
+    let a=[...set];
+    if(a.length>MAX_SHOWN)a=a.slice(a.length-MAX_SHOWN); // mantém os mais recentes
+    localStorage.setItem(LS.shown,JSON.stringify(a));
+  }catch(e){}
+}
+function clearShown(){try{localStorage.removeItem(LS.shown)}catch(e){}}
 const State={leads:[],hist:[],cfg:{keys:[],keyIdx:0,theme:'dark',lang:'pt-BR'},results:[],favOnly:false,quota:0};
 let stopFlag=false;
 
@@ -1723,6 +1745,9 @@ const I18N={
   terms_active:"Nicho: {{niche}} — refinado por: {{list}}",
   reason_off_niche:"fora do nicho",
   reason_off_terms:"não bate com os termos",
+  reason_no_contact:"sem nenhum contato",
+  reset_shown:"Permitir canais repetidos",
+  shown_reset:"Memória de canais entregues limpa — buscas anteriores podem repetir.",
   forgot_reset_working:"Apagando dados…",
   forgot_reset_err_body:"Não foi possível apagar todos os dados. Verifique se o navegador permite armazenamento local e tente novamente.",
   dlg_ok:"OK",dlg_cancel:"Cancelar",dlg_yes:"Confirmar",
@@ -1974,6 +1999,12 @@ const I18N={
   filtered_out:"Filtrados:",
   results_arrow:"→ {{n}} canais nos resultados",
   sources_exhausted:'Fontes esgotadas para "{{q}}". Tente um termo diferente ou mais amplo.',
+  efficiency_line:'Rodada {{r}}: +{{n}} aprovados por {{g}} de cota · marginal {{m}}/canal · média {{a}}/canal',
+  stop_smart_title:'PARADA INTELIGENTE — retorno decrescente detectado',
+  stop_smart_body:'Encerrada com {{c}} canais por {{q}} de cota ({{m}}/canal). Os próximos canais custariam ~{{x}}/canal ({{r}}x a média) — não compensava continuar.',
+  stop_smart_hint:'Para forçar a meta completa, refine o nicho ou amplie os filtros.',
+  query_dropped:'Query encerrada: "{{q}}" [{{o}}] — {{n}} canais, 0 aprovados',
+  stop_zero_conv:'Busca encerrada: {{n}} rodadas seguidas sem nenhum canal aprovado.',
   no_channels_passed:"Nenhum canal passou pelos filtros ativos.",
   top5:"Top 5:",
   done_found:"Concluído — {{n}} canais encontrados",
@@ -2041,6 +2072,9 @@ const I18N={
   terms_active:"Niche: {{niche}} — refined by: {{list}}",
   reason_off_niche:"outside the niche",
   reason_off_terms:"doesn't match the terms",
+  reason_no_contact:"no contact at all",
+  reset_shown:"Allow repeating channels",
+  shown_reset:"Delivered-channel memory cleared — previous results can repeat.",
   forgot_reset_working:"Erasing data…",
   forgot_reset_err_body:"Could not erase all data. Check that your browser allows local storage and try again.",
   dlg_ok:"OK",dlg_cancel:"Cancel",dlg_yes:"Confirm",
@@ -2292,6 +2326,12 @@ const I18N={
   filtered_out:"Filtered out:",
   results_arrow:"→ {{n}} channels in results",
   sources_exhausted:'Sources exhausted for "{{q}}". Try a different or broader search term.',
+  efficiency_line:'Round {{r}}: +{{n}} approved for {{g}} quota · marginal {{m}}/channel · average {{a}}/channel',
+  stop_smart_title:'SMART STOP — diminishing returns detected',
+  stop_smart_body:'Stopped at {{c}} channels for {{q}} quota ({{m}}/channel). The next channels would cost ~{{x}}/channel ({{r}}x the average) — not worth continuing.',
+  stop_smart_hint:'To force the full target, refine the niche or widen the filters.',
+  query_dropped:'Query stopped: "{{q}}" [{{o}}] — {{n}} channels, 0 approved',
+  stop_zero_conv:'Search stopped: {{n}} consecutive rounds with no approved channel.',
   no_channels_passed:"No channels passed the active filters.",
   top5:"Top 5:",
   done_found:"Done — {{n}} channels found",
@@ -2534,6 +2574,13 @@ function toggleChip(input){input.closest('.chip').classList.toggle('selected',in
 function toggleContactMode(e){e.preventDefault();contactMode=contactMode==='all'?'any':'all';const hint=$('contact-mode-hint');hint.innerHTML=t(contactMode==='all'?'contact_mode_all':'contact_mode_any');updateFilterWarn()}
 function selectedContacts(){return[...document.querySelectorAll('.chip input:checked')].map(c=>c.value)}
 function readFilters(){return{minSubs:readNum('fmin'),maxSubs:readNum('fmax'),minScore:parseInt($('fscore').value)||0,countries:selectedCountries(),contacts:selectedContacts(),contactMode,hideSeen:$('fhide').checked}}
+/* Zera a memória de canais já entregues, permitindo que buscas anteriores
+   voltem a aparecer. Útil quando o usuário quer refazer uma prospecção. */
+function resetShown(){
+  clearShown();
+  setStatus(t('shown_reset'));
+  log(t('shown_reset'),'k');
+}
 function clearFilters(){$('fmin').value='';$('fmax').value='';$('fscore').value='0';if($('fcountry1'))$('fcountry1').value='';if($('fcountry2'))$('fcountry2').value='';$('fhide').checked=false;document.querySelectorAll('.chip input').forEach(c=>{c.checked=false;c.closest('.chip').classList.remove('selected')});$('contact-mode-hint').style.display='none';updateFilterWarn()}
 function updateFilterWarn(){
   const warn=$('filter-warn');if(!warn)return;
@@ -2547,7 +2594,61 @@ function updateFilterWarn(){
 }
 function describeFilters(f){const a=[];if(f.minSubs)a.push(t('desc_min',{n:fmtN(f.minSubs)}));if(f.maxSubs)a.push(t('desc_max',{n:fmtN(f.maxSubs)}));if(f.minScore)a.push(t('desc_score',{n:f.minScore}));if(f.countries&&f.countries.length)a.push(f.countries.join('/'));if(f.contacts.length)a.push(t(f.contactMode==='all'?'desc_contacts_all':'desc_contacts_any',{list:f.contacts.join(',')}));if(f.hideSeen)a.push(t('desc_hide_saved'));return a}
 function leadHasContact(l){return['discord','twitter','email','instagram','tiktok','website','linkedin'].some(c=>l[c])}
-function rejectReason(l,f,seenDB){if(f.hideSeen&&seenDB.has(l.channel_id))return t('reason_already_saved');if(f.minSubs&&l.subscribers<f.minSubs)return t('reason_subs_below_min');if(f.maxSubs&&l.subscribers>f.maxSubs)return t('reason_subs_above_max');if(f.minScore&&l.score<f.minScore)return t('reason_score_too_low');if(f.countries&&f.countries.length){if(!l.country)return t('reason_unknown_country');if(!f.countries.includes(l.country))return t('reason_diff_country');}if(f.contacts.length){if(f.contactMode==='all'){const missing=f.contacts.filter(c=>!l[c]);if(missing.length)return t('reason_missing',{list:missing.join('+')})}else{const hasAny=f.contacts.some(c=>l[c]);if(!hasAny)return t('reason_no_of',{list:f.contacts.join('/')})}}return null}
+function rejectReason(l,f,seenDB){
+  if(f.hideSeen&&seenDB.has(l.channel_id))return t('reason_already_saved');
+  /* Inscritos: só rejeita quando o dado existe. Canal com contagem oculta
+     não pode ser afirmado como fora da faixa. */
+  if(!l.subs_hidden){
+    if(f.minSubs&&l.subscribers<f.minSubs)return t('reason_subs_below_min');
+    if(f.maxSubs&&l.subscribers>f.maxSubs)return t('reason_subs_above_max');
+  }
+  /* SCORE é sinal de CLASSIFICAÇÃO, não de eliminação.
+     O score é uma heurística interna (inscritos + views + frequência), não um
+     critério objetivo do usuário. Tratá-lo como corte rígido fazia canais
+     perfeitamente válidos morrerem por uma nota que o próprio software
+     inventou. Respeitamos a INTENÇÃO ("quero os melhores") com uma margem de
+     tolerância, e o ranking coloca os de score alto no topo de qualquer forma. */
+  if(f.minScore){
+    const margem=Math.max(10,Math.round(f.minScore*0.25));
+    if(l.score<f.minScore-margem)return t('reason_score_too_low');
+  }
+  /* PAÍS: aceita quando declarado, quando a língua é compatível, OU quando
+     não há evidência alguma contra. Descartar por AUSÊNCIA de dado (o campo
+     country é opcional na API e a maioria dos canais não preenche) elimina
+     candidatos válidos por uma limitação da API, não por mérito. */
+  if(f.countries&&f.countries.length){
+    /* Só rejeitamos por país quando ele foi DECLARADO pelo canal. Um país
+       apenas INFERIDO pelo idioma é palpite, não fato: "canal em alemão"
+       não prova que o criador está na Alemanha. Rejeitar por palpite
+       descartava dezenas de canais válidos — e o campo country é opcional na
+       API, então a maioria dos canais cai justamente nesse caso.
+       Sem declaração, exigimos apenas que não haja evidência CONTRÁRIA. */
+    if(l.country&&!l.country_inferred){
+      if(!f.countries.includes(l.country))return t('reason_diff_country');
+    }else{
+      /* País inferido ou ausente: usamos apenas os candidatos de idioma como
+         evidência. O código do país inferido NÃO entra aqui — ele é palpite
+         de um idioma para um único país, e usá-lo como prova era o que
+         rejeitava canais válidos. */
+      const cand=l.country_candidates||[];
+      if(cand.length&&!cand.some(c=>f.countries.includes(c)))
+        return t('reason_diff_country');
+    }
+  }
+  /* Contato: a interface diz "Requer todos os selecionados" no modo ALL, e
+     existe o botão "Trocar para qualquer" quando o usuário quer flexibilidade.
+     O filtro respeita exatamente o que a interface promete. */
+  if(f.contacts.length){
+    if(f.contactMode==='all'){
+      const missing=f.contacts.filter(c=>!l[c]);
+      if(missing.length)return t('reason_missing',{list:missing.join('+')});
+    }else{
+      const hasAny=f.contacts.some(c=>l[c]);
+      if(!hasAny)return t('reason_no_of',{list:f.contacts.join('/')});
+    }
+  }
+  return null;
+}
 
 /* ══ QUOTA (tracked per key — see also currentKey()/rotateKey()/removeKey() below) ══
    Each API key gets its own 10,000-unit/day budget from Google. Usage is now
@@ -2573,7 +2674,11 @@ function refreshQuotaUI(){
   const sub=$('q-sub');if(sub)sub.textContent=t('quota_units',{n:used.toLocaleString(State.cfg.lang==='en-US'?'en-US':'pt-BR')});
 }
 let _costAcc=0,_costTimer=null;
+/* Cota consumida na pesquisa ATUAL. Zerada no início de cada runSearch.
+   É a entrada do controlador de parada por retorno decrescente. */
+let searchQuotaSpent=0;
 function addQuota(u){
+  searchQuotaSpent+=(u||0);
   if(!u)return;
   addKeyUsage(currentKey(),u);
   refreshQuotaUI();
@@ -2623,12 +2728,37 @@ function clearApiCache(){apiCache.clear()}
    pedirem a mesma coisa ao mesmo tempo, sai uma chamada só. */
 const inFlight=new Map();
 
+/* ══ TELEMETRIA DE AUDITORIA ══
+   Registra TODA chamada no único ponto por onde todas passam, separando
+   chamadas de rede (que custam cota) de cache hits e coalescências (que não
+   custam). É assim que se prova se há chamada redundante ou repetida. */
+let apiTele=null;
+function teleReset(){apiTele={calls:{},units:{},cacheHits:{},coalesced:{},sigs:{},order:[]}}
+function teleNet(ep,unidades,sig){
+  if(!apiTele)return;
+  apiTele.calls[ep]=(apiTele.calls[ep]||0)+1;
+  apiTele.units[ep]=(apiTele.units[ep]||0)+unidades;
+  apiTele.sigs[sig]=(apiTele.sigs[sig]||0)+1;
+  apiTele.order.push(ep);
+}
+function teleCache(ep){if(apiTele)apiTele.cacheHits[ep]=(apiTele.cacheHits[ep]||0)+1}
+function teleCoal(ep){if(apiTele)apiTele.coalesced[ep]=(apiTele.coalesced[ep]||0)+1}
 async function api(endpoint,params){
   const ck=cacheKey(endpoint,params);
-  const cached=cacheGet(ck);
-  if(cached!==undefined)return cached;
-  if(inFlight.has(ck))return inFlight.get(ck);
-  const p=apiRaw(endpoint,params).then(j=>{cacheSet(ck,j);return j}).finally(()=>inFlight.delete(ck));
+  /* search.list NUNCA usa cache.
+     O cache existe para não repagar dados ESTÁVEIS (detalhes de um canal,
+     de um vídeo). Mas a descoberta é o oposto: repetir a busca precisa
+     EXPLORAR, não devolver a mesma página. Com search cacheado, a segunda
+     pesquisa do mesmo termo recebia exatamente os mesmos canais — que já
+     estavam salvos no pipeline — e entregava zero, gastando quase nada de
+     cota. Era isso que fazia "repetir a busca não encontrar mais nada". */
+  const cacheavel=(endpoint!=='search');
+  if(cacheavel){
+    const cached=cacheGet(ck);
+    if(cached!==undefined){teleCache(endpoint);return cached}
+  }
+  if(inFlight.has(ck)){teleCoal(endpoint);return inFlight.get(ck)}
+  const p=apiRaw(endpoint,params).then(j=>{if(cacheavel)cacheSet(ck,j);return j}).finally(()=>inFlight.delete(ck));
   inFlight.set(ck,p);
   return p;
 }
@@ -2639,7 +2769,8 @@ async function apiRaw(endpoint,params){
   while(true){
     const r=await fetch(`${API}/${endpoint}?`+new URLSearchParams({...params,key}));
     const j=await r.json();
-    if(r.ok){addQuota(UNIT_COST[endpoint]||1);return j}
+    if(r.ok){const u=UNIT_COST[endpoint]||1;addQuota(u);
+      teleNet(endpoint,u,cacheKey(endpoint,params));return j}
     const reason=j?.error?.errors?.[0]?.reason||'';const code=j?.error?.code||r.status;
     const isQuota=reason.toLowerCase().includes('quota')||code===429;attempts++;
     if(isQuota){
@@ -2688,18 +2819,45 @@ const LANG_TO_COUNTRY={
   'iw':'IL','hi':'IN','bn':'BD','id':'ID','ms':'MY','tl':'PH','fil':'PH',
   'fa':'IR','ru':'RU','zh-tw':'TW','zh-hk':'HK','it':'IT','de':'DE','ka':'GE'
 };
+/* Idiomas AMBÍGUOS → países candidatos plausíveis. NÃO usamos isto para
+   "adivinhar" um país único (seria errado), mas para decidir se um canal de
+   país desconhecido AINDA PODE bater um filtro de país. Ex.: um canal em
+   inglês, sem país declarado, devolvido por uma busca com regionCode=US, é
+   plausivelmente dos EUA — então não o descartamos só por falta do campo. */
+const LANG_TO_CANDIDATES={
+  'en':['US','GB','CA','AU','NZ','IE','ZA','IN','PH','NG'],
+  'es':['ES','MX','AR','CO','CL','PE','VE','US'],
+  'pt':['BR','PT','AO','MZ'],
+  'fr':['FR','CA','BE','CH','MA','SN'],
+  'ar':['SA','EG','AE','MA','DZ','IQ','JO'],
+  'de':['DE','AT','CH'],
+  'nl':['NL','BE'],
+  'zh':['CN','TW','HK','SG']
+};
+function langCandidates(sn,br){
+  const cands=[sn.defaultLanguage,sn.defaultAudioLanguage,br&&br.defaultLanguage];
+  const out=new Set();
+  for(const c of cands){
+    if(!c)continue;
+    const base=String(c).toLowerCase().split('-')[0];
+    (LANG_TO_CANDIDATES[base]||[]).forEach(cc=>out.add(cc));
+  }
+  return [...out];
+}
 function inferCountry(sn,br){
   const raw=(sn.country||'').trim().toUpperCase();
-  if(raw)return{code:raw,inferred:false};
+  if(raw)return{code:raw,inferred:false,candidates:[]};
   const cands=[sn.defaultLanguage,sn.defaultAudioLanguage,br&&br.defaultLanguage];
   for(const c of cands){
     if(!c)continue;
     const low=String(c).toLowerCase();
-    if(LANG_TO_COUNTRY[low])return{code:LANG_TO_COUNTRY[low],inferred:true};
+    if(LANG_TO_COUNTRY[low])return{code:LANG_TO_COUNTRY[low],inferred:true,candidates:[]};
     const base=low.split('-')[0];
-    if(LANG_TO_COUNTRY[base])return{code:LANG_TO_COUNTRY[base],inferred:true};
+    if(LANG_TO_COUNTRY[base])return{code:LANG_TO_COUNTRY[base],inferred:true,candidates:[]};
   }
-  return{code:'',inferred:false};
+  // Sem país nem idioma inequívoco: devolve países candidatos pela língua,
+  // usados só para o filtro de país aceitar canais consistentes com a região.
+  return{code:'',inferred:false,candidates:langCandidates(sn,br)};
 }
 
 /* ══ SCORE ══ */
@@ -2714,34 +2872,186 @@ async function fetchVideoIds(cid){const uploadsId=cid.startsWith('UC')?'UU'+cid.
 async function batchVideos(ids){return parallelBatch(ids,50,CONCURRENCY,async slice=>{try{const r=await api('videos',{part:'statistics,snippet',id:slice.join(',')});return r.items||[]}catch(e){if(e.code===429||(e.reason||'').includes('quota'))throw e;return[]}})}
 async function chunked(items,fn,size,onProg){const out=[];for(let i=0;i<items.length;i+=size){if(stopFlag)break;out.push(...await Promise.all(items.slice(i,i+size).map(fn)));if(onProg)onProg(Math.min(i+size,items.length),items.length);if(i+size<items.length)await sleep(SLEEP)}return out}
 
-/* ══ SEARCH ══ */
-async function processBatch(cids,onProg){
-  if(!cids.length)return[];
-  const [channels,meta]=await Promise.all([batchChannels(cids),chunked(cids,fetchVideoIds,CONCURRENCY*2,()=>{})]);
-  if(onProg)onProg(0.5);
-  const metaBy={};meta.forEach(m=>metaBy[m.cid]=m);
-  const vids=[...new Set(meta.flatMap(m=>m.ids))];
-  const vdetails=await batchVideos(vids);
-  const vBy={};vdetails.forEach(v=>vBy[v.id]=v);
-  if(onProg)onProg(0.9);
-  // A cota já foi contabilizada dentro de api(), chamada a chamada.
-  const leads=[];
+/* ══ SEARCH ══
+   Pipeline em DUAS FASES para não gastar cota com canais que já sabemos que
+   serão descartados:
+
+   Fase 1 (barata): channels.list em lote (1 unid / 50 canais). Já traz título,
+   descrição, estatísticas e branding — o suficiente para aplicar relevância
+   (nicho/subnicho no texto do canal), país, inscritos e "já salvo". Canais que
+   falham aqui são jogados fora ANTES de qualquer chamada cara.
+
+   Fase 2 (cara): só para os sobreviventes — playlistItems.list (1 unid POR
+   canal) + videos.list. É aqui que extraímos contatos dos vídeos e calculamos
+   frequência/média de views. Antes, isto rodava para TODOS os candidatos
+   brutos, inclusive os ~85% que os filtros descartariam. Essa era a segunda
+   maior fonte de desperdício. */
+async function processBatch(cids,ctx,onProg){
+  if(!cids.length)return{leads:[],preRejections:{}};
+  ctx=ctx||{};
+  const channels=await batchChannels(cids);
+  if(onProg)onProg(0.35);
+  /* Instrumentação: contagem por etapa, para o log de funil. */
+  const stage={pedidos:cids.length,detalhes:channels.length,prefiltro:0,videos:0,leads:0,
+    semPais:0,semInscritos:0,semUploads:0,videosAnalisados:0,videosUsados:0,
+    contatos:{email:0,discord:0,instagram:0,twitter:0,tiktok:0,website:0,linkedin:0,nenhum:0}};
+  channels.forEach(c=>{
+    const sn=c.snippet||{},st=c.statistics||{};
+    if(!(sn.country||'').trim())stage.semPais++;
+    if(st.subscriberCount===undefined||st.hiddenSubscriberCount===true)stage.semInscritos++;
+  });
+
+  // ── Fase 1: pré-filtro no nível do canal (sem custo extra) ──
+  const survivors=[];const preRejections={};const dropped=[];
   for(const ch of channels){
     if(stopFlag)break;
-    const cid=ch.id,sn=ch.snippet||{},st=ch.statistics||{},br=ch.brandingSettings?.channel||{};
+    const sn=ch.snippet||{},st=ch.statistics||{},br=ch.brandingSettings?.channel||{};
+    const ctry=inferCountry(sn,ch.brandingSettings&&ch.brandingSettings.channel);
+    // Lead parcial: só com o que channels.list já forneceu. Contatos e score
+    // ainda não existem — os filtros que dependem deles rodam na Fase 2.
+    const partial={
+      channel_id:ch.id,
+      channel_name:sn.title||'',
+      description:(sn.description||''),
+      brand_desc:(br.description||''),
+      brand_keywords:(br.keywords||''),
+      subscribers:+(st.subscriberCount||0),
+      // API omite subscriberCount quando o canal esconde a contagem
+      subs_hidden:(st.hiddenSubscriberCount===true)||(st.subscriberCount===undefined),
+      country:ctry.code,
+      language:sn.defaultLanguage||sn.defaultAudioLanguage||''
+    };
+    const preReason=channelPrefilterReject(partial,ctx);
+    if(preReason){
+      preRejections[preReason]=(preRejections[preReason]||0)+1;
+      dropped.push({nome:partial.channel_name||partial.channel_id,motivo:preReason,
+        etapa:'pré-filtro',subs:partial.subscribers,pais:partial.country||'(vazio)'});
+      continue}
+    survivors.push({ch,sn,st,br,ctry});
+  }
+  stage.prefiltro=survivors.length;
+  if(!survivors.length){if(onProg)onProg(1);return{leads:[],preRejections,stage,dropped}}
+
+  // ── Fase 2: chamadas caras só para quem passou ──
+  const survIds=survivors.map(s=>s.ch.id);
+  /* ══ ENRIQUECIMENTO SEM playlistItems ══
+     Antes: 1 chamada de playlistItems.list POR CANAL (1 unidade cada) só para
+     descobrir IDs de vídeos — que o search JÁ tinha devolvido e nós jogávamos
+     fora. Em lotes de 50, isso custava 50 unidades por lote, crescendo
+     LINEARMENTE com o número de canais.
+     Agora usamos os vídeos-semente vindos da busca. videos.list é em LOTE
+     (1 unidade por 50 vídeos), então o enriquecimento fica quase gratuito e
+     não escala com a quantidade de canais.
+     Só recorremos a playlistItems para canais sem semente (raro). */
+  const seeds=(ctx&&ctx.seedVideos)||{};
+  const semSemente=survIds.filter(id=>!(seeds[id]&&seeds[id].length));
+  const metaBy={};
+  survIds.forEach(id=>{
+    const ids=(seeds[id]||[]).slice(0,VIDS_PER_CH);
+    if(ids.length)metaBy[id]={cid:id,ids,freq:0,last:(ctx.seedDates||{})[id]||null,fromSeed:true};
+  });
+  if(semSemente.length){
+    const extra=await chunked(semSemente,fetchVideoIds,CONCURRENCY*2,()=>{});
+    extra.forEach(m=>metaBy[m.cid]=m);
+  }
+  if(onProg)onProg(0.7);
+  const vids=[...new Set(Object.values(metaBy).flatMap(m=>m.ids))];
+  const vdetails=await batchVideos(vids);
+  const vBy={};vdetails.forEach(v=>vBy[v.id]=v);
+  if(onProg)onProg(0.95);
+  // A cota já foi contabilizada dentro de api(), chamada a chamada.
+  const leads=[];
+  for(const s of survivors){
+    if(stopFlag)break;
+    const {ch,sn,st,br,ctry}=s;const cid=ch.id;
     const md=metaBy[cid]||{ids:[],freq:0,last:null};
     const parts=[sn.description||'',br.description||'',br.keywords||''];
+    // Texto para checagem de relevância: título do canal + bio + TÍTULOS e
+    // descrições dos vídeos. É nos títulos de vídeo que o subnicho costuma
+    // aparecer ("Minecraft Hardcore Ep 1"), então incluí-los aqui é o que
+    // permite ao refinamento casar sem exigir a palavra na bio do canal.
+    const relParts=[sn.title||'',sn.description||'',br.description||'',br.keywords||'',sn.defaultLanguage||''];
+    // Texto dos vídeos que casaram a busca — evidência direta do tema.
+    if(ctx.seedText&&ctx.seedText[cid])relParts.push(ctx.seedText[cid]);
     let tv=0,vc=0;
-    for(const vid of md.ids){const v=vBy[vid];if(!v)continue;const d=v.snippet?.description||'';if(d.length>5)parts.push(d);const views=+(v.statistics?.viewCount||0);if(views>0){tv+=views;vc++}}
+    for(const vid of md.ids){const v=vBy[vid];if(!v)continue;const vs=v.snippet||{};const d=vs.description||'';if(d.length>5)parts.push(d);if(vs.title)relParts.push(vs.title);if(d.length>5)relParts.push(d.slice(0,200));const views=+(v.statistics?.viewCount||0);if(views>0){tv+=views;vc++}}
     const avgViews=vc?Math.round(tv/vc):0;
+    /* Frequência de postagem: se veio de semente, calculamos com as datas dos
+       vídeos que o videos.list trouxe (já pagos), sem chamada extra. */
+    if(md.fromSeed){
+      const datas=md.ids.map(i=>vBy[i]).filter(Boolean)
+        .map(v=>({snippet:{publishedAt:v.snippet&&v.snippet.publishedAt}}))
+        .filter(d=>d.snippet.publishedAt);
+      if(datas.length){md.freq=calcFreq(datas);
+        const ord=datas.map(d=>String(d.snippet.publishedAt).slice(0,10)).sort();
+        md.last=ord[ord.length-1]||md.last;}
+    }
     const th=sn.thumbnails||{};const contacts=extractContacts(parts.join('\n'));
-    const ctry=inferCountry(sn,ch.brandingSettings&&ch.brandingSettings.channel);
-    const hasAnyContact=['discord','twitter','email','instagram','tiktok','website','linkedin'].some(k=>contacts[k]);
-    if(!hasAnyContact)continue; // discard channels with no contact method at all — never shown or saved
+    ['email','discord','instagram','twitter','tiktok','website','linkedin']
+      .forEach(k=>{if(contacts[k])stage.contatos[k]++});
+    /* REGRA DE PROSPECÇÃO: canal sem NENHUM contato é inútil para o objetivo
+       do software e não deve ser entregue.
+
+       Histórico desta linha: ela existia, eu a removi, e a remoção foi um
+       erro meu. O bug real era ela descartar em SILÊNCIO — sem registrar o
+       motivo, o que fazia as contas do log não fecharem. Confundi "descarte
+       não contabilizado" com "descarte indevido" e removi a regra inteira,
+       fazendo canais sem contato voltarem a aparecer.
+       Correção: a regra volta, agora CONTABILIZADA no funil. */
+    const hasAnyContact=['discord','twitter','email','instagram','tiktok','website','linkedin']
+      .some(k=>contacts[k]);
+    if(!hasAnyContact){
+      stage.contatos.nenhum++;
+      dropped.push({nome:sn.title||cid,motivo:t('reason_no_contact'),etapa:'contato',
+        subs:+(st.subscriberCount||0),pais:ctry.code||'(vazio)'});
+      continue;
+    }
     const score=calcScore(st,avgViews,md.freq);
-    leads.push({channel_id:cid,channel_name:sn.title||'',channel_url:`https://youtube.com/channel/${cid}`,subscribers:+(st.subscriberCount||0),avg_views:avgViews,video_count:+(st.videoCount||0),last_video_date:md.last,country:ctry.code,country_inferred:ctry.inferred,language:sn.defaultLanguage||sn.defaultAudioLanguage||'',description:(sn.description||'').slice(0,400),thumbnail_url:(th.high||th.medium||th.default||{}).url||'',posting_frequency:md.freq,score,...contacts,status:'novo',is_favorite:false,notes:'',created_at:new Date().toISOString()});
+    leads.push({channel_id:cid,channel_name:sn.title||'',channel_url:`https://youtube.com/channel/${cid}`,subscribers:+(st.subscriberCount||0),subs_hidden:(st.hiddenSubscriberCount===true)||(st.subscriberCount===undefined),avg_views:avgViews,video_count:+(st.videoCount||0),last_video_date:md.last,country:ctry.code,country_inferred:ctry.inferred,country_candidates:ctry.candidates||[],language:sn.defaultLanguage||sn.defaultAudioLanguage||'',description:(sn.description||'').slice(0,400),rel_text:relParts.join(' ').slice(0,1200),thumbnail_url:(th.high||th.medium||th.default||{}).url||'',posting_frequency:md.freq,score,...contacts,status:'novo',is_favorite:false,notes:'',created_at:new Date().toISOString()});
   }
-  return leads;
+  stage.videos=survivors.length;stage.leads=leads.length;
+  if(onProg)onProg(1);
+  return{leads,preRejections,stage,dropped};
+}
+
+/* Rejeição barata: usa só dados de channels.list. Retorna true SOMENTE quando
+   dá para descartar o canal com segurança, sem risco de matar um lead legítimo.
+
+   Regra de ouro: só barramos aqui pelos critérios OBJETIVOS e confiáveis a
+   nível de canal — inscritos, "já salvo" e o token principal do nicho.
+
+   O que deliberadamente NÃO barramos na Fase 1:
+   • Refinamentos/subnichos ("hardcore"): canais legítimos costumam colocar o
+     subnicho no TÍTULO DOS VÍDEOS, não na bio do canal. Barrar aqui matava
+     ~99% dos candidatos (foi o bug do "279 fora do nicho"). Fica para o
+     rejectReason final, depois que os vídeos foram lidos.
+   • País: channels.list frequentemente omite snippet.country, e a inferência
+     por idioma pode faltar sem os vídeos. Descartar por país aqui jogaria fora
+     muitos canais válidos de país desconhecido. Fica para a etapa final. */
+function channelPrefilterReject(p,ctx){
+  /* Devolve o MOTIVO real da rejeição (ou null se passar).
+
+     O pré-filtro só aplica critérios OBJETIVOS, que os dados de channels.list
+     respondem com certeza: já salvo e faixa de inscritos.
+
+     O que NÃO se filtra aqui — e por quê:
+     • NICHO. Exigir a palavra do nicho na BIO do canal era destrutivo: matava
+       ~79% dos candidatos. Um canal que posta Minecraft todo dia pode ter a
+       bio vazia, ou só um e-mail comercial, ou um slogan. O YouTube já
+       devolveu esse canal PORQUE ele posta sobre o assunto — exigir a palavra
+       de novo na bio é redundante e joga fora leads legítimos. A relevância
+       é verificada depois, no rejectReason, com o texto dos VÍDEOS em mãos,
+       que é onde o assunto realmente aparece.
+     • Refinamentos/subnichos: idem, e ainda mais raros na bio.
+     • País: channels.list frequentemente omite snippet.country. */
+  const {filters:f,seenDB}=ctx;
+  /* Só "já salvo" fica aqui: é definitivo e evita gastar vídeos com quem já
+     está no pipeline. Inscritos saíram deste ponto — eram avaliados aqui E de
+     novo no rejectReason, e a duplicação não agregava nada. A faixa de
+     inscritos passa a ser decidida uma única vez, no filtro final, junto com
+     os demais critérios do usuário. */
+  if(f&&f.hideSeen&&seenDB&&seenDB.has(p.channel_id))return t('reason_already_saved');
+  return null;
 }
 
 let searchRunning=false;
@@ -2767,61 +3077,219 @@ async function runSearch(){
   setStatus(t('searching',{q:query}));log(t('searching_target',{q:query,n:maxCh}));
   try{
     const seenDB=new Set(State.leads.map(l=>l.channel_id));
+    /* Canais já entregues em buscas anteriores. Sempre excluídos, sem depender
+       de checkbox: repetir a mesma busca deve trazer canais NOVOS. */
+    const shownDB=loadShown();
     const collected=new Set();const processedIds=new Set();const allLeads=[];const passedLeads=[];const rejections={};
-    /* Cada janela de data é uma chamada de search extra (100 unidades) por
-       fonte. 36 meses em passos de 3 davam 12 janelas POR fonte — dezenas de
-       chamadas escondidas depois que o pageToken acabava. Passos de 6 meses
-       em 18 meses dão 3 janelas, e canais parados há mais de 18 meses não
-       interessam a uma busca de leads ativos. */
-    const now=new Date(),windows=[];const stepMonths=6;const maxMonths=18;
-    for(let mo=0;mo<maxMonths;mo+=stepMonths){const b=new Date(now);b.setMonth(b.getMonth()-mo);const a=new Date(now);a.setMonth(a.getMonth()-mo-stepMonths);windows.push({publishedBefore:b.toISOString(),publishedAfter:a.toISOString()})}
+    /* topicHits[canalId] = quantos vídeos DESTE canal casaram a busca.
+       É a "frequência do tema nos vídeos": mede se o canal realmente produz
+       sobre o assunto ou apenas apareceu uma vez por coincidência. */
+    searchQuotaSpent=0;   // zera o medidor de cota desta pesquisa
+    teleReset();          // zera a telemetria de auditoria
+    /* ══ CONTROLADOR DE PARADA POR RETORNO DECRESCENTE ══
+
+       Filosofia: a meta (maxCh) é um TETO, não uma obrigação. O objetivo é
+       maximizar  canais úteis ÷ cota consumida.
+
+       CRITÉRIO ESCOLHIDO: custo marginal vs custo médio.
+       É a definição econômica de retorno decrescente. Enquanto o custo do
+       próximo canal (marginal) estiver perto do custo médio acumulado, vale
+       continuar. Quando o marginal dispara muito acima da média, cada canal
+       adicional está destruindo a eficiência agregada.
+
+       Por que não os outros critérios avaliados:
+       • limiar absoluto de eficiência: exigiria uma constante por nicho —
+         nicho fácil e difícil têm eficiências 10x diferentes.
+       • regra 1/e (parada ótima clássica): resolve escolher UM item de uma
+         sequência; aqui acumulamos itens. Estruturalmente incompatível.
+       • derivada segunda / inflexão: ruidosa demais com 5–10 rodadas.
+       A razão marginal/média é adimensional, então se auto-calibra por nicho
+       sem nenhuma constante mágica dependente de domínio.
+
+       Calibração (medida em simulação):
+       • nicho saudável: razão oscila entre 1,0 e 1,4 → não deve parar.
+       • cenário de retorno decrescente real: razão salta para 4x+ → parar.
+       Limiar em 2,5x, com HISTERESE de 2 rodadas ruins seguidas para não
+       reagir a uma rodada azarada. */
+    const STOP_RATIO=2.2;        // marginal acima de 2,2x a média = rodada ruim
+    const STOP_STREAK=2;         // duas seguidas confirmam a tendência
+    const STOP_RATIO_HARD=4;     // salto extremo → para na hora, sem esperar
+    const MIN_RESULTS=8;         // nunca parar cedo com pouquíssimo resultado
+    const MIN_QUOTA_BASE=400;    // nem antes de ter amostra estatística
+    /* Teto absoluto de custo médio por canal. Acima disso a busca não é
+       economicamente viável, independentemente da tendência marginal.
+       Escala com o rigor dos filtros: filtro de país legitimamente encarece. */
+    const CEILING_PER_CHANNEL=(filters.countries&&filters.countries.length)?200:120;
+    const efficiency=[];         // histórico por rodada, para o relatório
+    let badStreak=0, stoppedEarly=false, stopInfo=null;
+    /* Auditoria de descoberta: estatística por query e atribuição de cada
+       canal à query que o encontrou primeiro. */
+    const queryStats={};
+    const discoveredBy={};
+    /* Rodadas consecutivas sem nenhum aprovado. Ao atingir o limite a busca
+       encerra — preferimos poucos canais baratos a milhares de unidades. */
+    let zeroRounds=0;const ZERO_ROUNDS_LIMIT=3;
+    const topicHits={};
+    /* Dados que o search JÁ entregou (e já pagamos). Reaproveitá-los elimina
+       playlistItems.list, que custava 1 unidade POR CANAL. */
+    const seedVideos={};   // canalId -> [videoId] vindos da própria busca
+    const seedText={};     // canalId -> títulos/descrições dos vídeos que casaram
+    const seedDates={};    // canalId -> data do vídeo mais recente visto
+    // Instrumentação do funil: quantos canais entram e saem de cada etapa.
+    const funnel={coletados:0,pedidos:0,detalhes:0,prefiltro:0,leads:0,
+      semPais:0,semInscritos:0,duplicados:0,
+      contatos:{email:0,discord:0,instagram:0,twitter:0,tiktok:0,website:0,linkedin:0,nenhum:0}};
+    const droppedAll=[];
+    /* JANELAS DE DATA — restauradas.
+       Eu as havia removido tratando-as como desperdício. Era o oposto: cada
+       janela é um recorte DIFERENTE do mesmo termo (quem postou nos últimos
+       3 meses não é quem postou há 30), e essa diversidade é o que fazia a
+       versão original render mais canais únicos por chamada. Sem elas, a
+       busca reencontra os mesmos canais e os duplicados explodem. */
+    /* JANELAS DE DATA REMOVIDAS.
+       Dois motivos, ambos medidos:
+       (a) O pageToken da API codifica a CONSULTA INTEIRA. Ao trocar de janela
+           mantendo o token da janela anterior, a API rejeita o token e a
+           exceção era tratada como "fonte esgotada" — matando a query.
+       (b) Cada janela multiplicava o número de fontes, diluindo ainda mais o
+           orçamento de páginas por query.
+       A paginação natural (nextPageToken) já percorre o histórico do termo
+       sem precisar fatiar por data. */
+    const windows=[];
     const queryVariants=buildQueryVariants(query);
     const relevance=buildRelevance(query);
     const parsedQ=parseQuery(query);
     if(parsedQ.refinements.length)log(t('terms_active',{niche:parsedQ.niche,list:parsedQ.refinements.join(' · ')}),'i');
-    /* 'relevance', 'date' e 'viewCount' sobre o MESMO termo devolvem em boa
-       parte os mesmos canais — o topo de um nicho aparece nas três ordens.
-       Com um único nicho, 'relevance' já traz o melhor material, e as outras
-       ordens só entram se a primeira não render o suficiente. Isso sozinho
-       corta ~2/3 das chamadas de search numa pesquisa simples. */
-    const orders=parsedQ.refinements.length?['relevance','viewCount']:['relevance','date','viewCount'];
+    /* Cada ordem devolve um recorte diferente do mesmo termo. Quando há filtro
+       de país é preciso examinar muito mais gente até juntar a meta, então
+       usamos as três ordens para ampliar o pool de canais ÚNICOS. Sem filtro
+       de país, duas bastam e economizam chamadas. */
+    /* Três ordens SEMPRE, como no original. Com a coleta em largura e as
+       janelas de data, cada combinação (ordem × janela) é uma população
+       distinta de canais — é daí que vem o rendimento por chamada. */
+    /* ORDENS DE BUSCA ALINHADAS AO FILTRO DE INSCRITOS.
+       'viewCount' devolve os canais MAIORES do nicho primeiro. Com um teto de
+       inscritos, isso é o oposto do que se quer: nos logs reais essa ordem
+       trouxe SB737 (4,9M), camman18 (11M), DrDonut (2,4M), rekrap2 (2,5M) —
+       todos rejeitados por "inscritos acima do máximo", gastando 100 unidades
+       por chamada para encontrar quem o filtro exclui por definição.
+       Quando há teto, usamos 'relevance' e 'date', que trazem criadores de
+       todos os tamanhos. Sem teto, 'viewCount' volta a ser útil. */
+    /* MENOS FONTES, MAIS PÁGINAS EM CADA.
+       O orçamento de search é dividido entre todas as fontes (queries × ordens).
+       Com 3 queries × 3 ordens = 9 fontes e ~10 chamadas de orçamento, cada
+       query recebia ~1 página — e a primeira página é a mais sobreposta entre
+       queries parecidas. Resultado: 20–50 canais únicos e a sensação de que
+       "a query acabou", quando na verdade ela mal começou.
+       A API oferece dezenas de páginas por termo; paginar fundo em poucas
+       fontes rende muito mais canais únicos por unidade de cota do que tocar
+       na superfície de muitas. */
+    const temTetoInscritos=filters.maxSubs>0;
+    const orders=temTetoInscritos?['relevance']:['relevance','viewCount'];
     const sources=[];
-    // Ask YouTube to bias results toward the chosen countries. This narrows
-    // the pool at the source instead of fetching then discarding.
-    const regions=(filters.countries&&filters.countries.length)?filters.countries:[null];
+    /* CAUSA RAIZ de cota duplicada: as fontes eram multiplicadas por país
+       (uma chamada com regionCode=US, outra com regionCode=CA, para a MESMA
+       consulta). Mas regionCode NÃO filtra pelo país do canal — ele apenas
+       enviesa a relevância para o público daquela região, e os resultados se
+       sobrepõem quase totalmente. Era cota dobrada pelos mesmos canais.
+       Usamos UM regionCode apenas como dica de relevância; o filtro de país
+       de verdade acontece depois, sobre o país declarado/inferido do canal. */
+    const regionHint=(filters.countries&&filters.countries.length)?filters.countries[0]:null;
     // Ordem externa = 'order': varremos TODOS os termos em 'relevance' antes de
-    // gastar em 'date'/'viewCount'. Como o orçamento costuma acabar antes do
+    // gastar em 'viewCount'/'date'. Como o orçamento costuma acabar antes do
     // fim da lista, as primeiras chamadas precisam ser as de maior retorno.
-    for(const order of orders)for(const qv of queryVariants)for(const rc of regions)sources.push({qv,order,rc,windows:[...windows]});
+    for(const order of orders)for(const qv of queryVariants)
+      sources.push({qv,order,rc:regionHint,windows:[...windows]});
     // Strict country + relevance gating rejects a lot more, so the candidate
     // pool must grow or we run dry before reaching maxCh. This trades API
     // quota for precision, which is the intended tradeoff.
     const strict=(filters.countries&&filters.countries.length>0)||parsedQ.refinements.length>0;
     const batchSize=50;
-    /* A meta é maxCh canais VÁLIDOS. Como parte dos candidatos é descartada
-       pelos filtros (contato, país, nicho), precisamos coletar bem mais do que
-       maxCh de candidatos brutos. O teto do pool e o número de rodadas escalam
-       com a meta e com o rigor dos filtros, e a coleta continua puxando páginas
-       e variações de subnicho até bater maxCh ou esgotar as fontes.
+    /* Estratégia de coleta orientada por DEMANDA, não por um alvo fixo.
 
-       Estimativa de aproveitamento (candidato bruto → lead válido):
-         ~30% sem filtros extras, ~12% no modo estrito (país/subnichos).
-       Coletamos com folga sobre essa taxa para não parar cedo, mas a coleta
-       é preguiçosa: só pagina quando ainda faltam leads. Se a taxa real for
-       melhor que a estimada, batemos a meta antes e paramos — sem desperdício. */
-    /* Estimativa CONSERVADORA de aproveitamento para dimensionar o pool.
-       Se a taxa real for melhor, a coleta é preguiçosa e para assim que bate
-       maxCh — a folga não custa cota. Se for pior, precisamos ter espaço para
-       continuar. Por isso estimamos baixo de propósito. */
-    const passRate=strict?0.10:0.18;
-    const targetPool=Math.min(600,Math.ceil(maxCh/passRate*1.4));
-    const maxRounds=Math.max(8,Math.ceil(targetPool/batchSize)+4);
-    /* Teto de segurança de chamadas search.list (100 unid. cada). Largo o
-       bastante para alcançar a meta mesmo com muita sobreposição, mas ainda
-       protegendo a cota diária. Cada chamada rende até ~50 candidatos. */
-    const searchBudget=Math.min(strict?45:32,Math.max(10,Math.ceil(targetPool/22)));
+       O erro anterior: mirar um targetPool grande (ex.: 420) e paginar até
+       alcançá-lo. Quando o universo do termo é pequeno, esse alvo é
+       inatingível, e a busca gastava dezenas de chamadas de search girando
+       em fontes que só devolviam repetidos — 1.400+ unidades para achar 7
+       canais. Força bruta pura.
+
+       Agora:
+       • A coleta puxa apenas o suficiente para o PRÓXIMO lote de
+         processamento, e só quando ainda faltam leads válidos.
+       • Um detector de saturação global observa quantos canais NOVOS cada
+         chamada de search traz. Quando as últimas chamadas trazem quase só
+         repetidos, o universo acabou — paramos, mesmo com orçamento sobrando.
+       • O teto de chamadas de search é conservador: o suficiente para uma
+         pesquisa honesta, nunca milhares de unidades. */
+    /* ══ DIMENSIONAMENTO REATIVO (não preditivo) ══
+
+       CAUSA RAIZ do "199 coletados → 3 resultados":
+       a arquitetura era PREDITIVA. Estimávamos uma taxa de aproveitamento
+       (passRate) e derivávamos dela um targetPool que funcionava como TETO
+       da coleta. No caso real (minecraft smp, US, 1K–100K) a conta dava
+       targetPool=198 — e o log mostrou exatamente 199 coletados. A busca
+       morria ao bater o teto, mesmo com orçamento e fontes disponíveis,
+       porque a estimativa não correspondia à realidade daquele nicho.
+
+       Toda vez que se ajustava a estimativa, outro cenário quebrava. O
+       defeito não era o número: era DEPENDER de um número previsto.
+
+       Agora não há previsão. O único limite é um teto de COTA (proteção
+       contra drenar a chave) e a condição de parada é factual:
+         • atingiu a meta  → para
+         • acabaram as fontes → para
+         • estourou o teto de cota → para
+       Enquanto faltar meta e houver fonte viável, a busca continua. */
+    const hasCountry=filters.countries&&filters.countries.length>0;
+    const nCountries=hasCountry?filters.countries.length:0;
+
+    /* Teto de chamadas de search (100 unidades cada). Escala com a meta —
+       metas maiores e filtros mais restritivos legitimamente precisam
+       examinar mais gente. É PROTEÇÃO DE COTA, não previsão de resultado. */
+    /* Teto de chamadas de search (100 unidades cada).
+       type:'video' rende ~14-20 canais únicos por chamada (contra 50 do
+       type:'channel'), porque a repetição de canais É o sinal de relevância.
+       Por isso o teto é maior: pagamos por QUALIDADE de candidato, não por
+       volume. Continua sendo proteção de cota, não previsão de resultado. */
+    /* Orçamento dimensionado para PAGINAR FUNDO em poucas fontes.
+       Com 1–2 ordens e sem janelas, são 2–6 fontes; este teto dá margem para
+       cada uma percorrer várias páginas em vez de parar na primeira. */
+    const searchBudget=Math.max(12,Math.min(45,Math.ceil(maxCh/30*(hasCountry?30:18))));
+    /* O pool não é mais um alvo a perseguir nem um teto que mata a busca:
+       é só uma trava de segurança bem folgada contra laço descontrolado. */
+    const targetPool=5000;
+    const maxRounds=200;
     let searchCalls=0;
-    SLEEP=10;CONCURRENCY=8;VIDS_PER_CH=20;
+    /* ── Detector de saturação GLOBAL, calibrado ──
+       O erro anterior: com piso 4 e janela 3, bastavam 3 páginas de uma mesma
+       fonte trazerem sobreposição (comum em nichos grandes com poucas
+       variações de query) para a busca declarar "universo esgotado" cedo
+       demais. Agora a janela é maior e o piso menor: só paramos quando VÁRIAS
+       chamadas seguidas trazem quase nada de novo — sinal real de esgotamento,
+       não sobreposição pontual entre duas ordens do mesmo termo. */
+    /* SATURAÇÃO GLOBAL DESATIVADA.
+       Era um detector agregado: se a média das últimas chamadas caísse abaixo
+       de um piso, TODA a coleta parava — inclusive fontes que ainda tinham
+       páginas produtivas. Como as primeiras páginas de queries parecidas se
+       sobrepõem muito, o detector disparava justamente quando era preciso
+       paginar mais fundo. A saturação agora é avaliada POR FONTE (páginas
+       consecutivas sem canal novo), que é evidência concreta e local. */
+    let recentYield=[];const YIELD_WINDOW=6;const SATURATION_FLOOR=0;
+    function noteYield(added){recentYield.push(added);if(recentYield.length>YIELD_WINDOW)recentYield.shift()}
+    function saturated(){
+      /* Sempre false: a saturação global foi desativada de propósito.
+         A decisão de esgotamento pertence a cada fonte (ver src._empty em
+         collectFrom), onde há evidência concreta — páginas consecutivas sem
+         nenhum canal novo. Um agregado não distingue "a query X secou" de
+         "as primeiras páginas se sobrepõem", e por isso matava a coleta
+         inteira cedo demais. */
+      return false;
+    }
+    /* 10 vídeos por canal bastam para confirmar o nicho, extrair contatos e
+       calcular frequência/média de views. Buscar 20 dobrava as chamadas de
+       videos.list sem melhorar a decisão — a cota economizada vira mais
+       candidatos analisados, que é o que faz atingir a meta. */
+    SLEEP=10;CONCURRENCY=8;VIDS_PER_CH=10;
     let round=0,srcIdx=0,exhausted=false;
     /* ── Coleta de candidatos ──
        Cada chamada de search.list custa 100 unidades — é aqui que a cota
@@ -2845,25 +3313,119 @@ async function runSearch(){
       if(searchCalls>=searchBudget)return 0;
       if(stopFlag)return 0;
       try{
+        /* ══ ESTRATÉGIA DE DESCOBERTA: POR CONTEÚDO, NÃO POR NOME ══
+
+           ERRO QUE EU INTRODUZI: troquei type:'video' por type:'channel'
+           mirando eficiência de cota (50 canais/chamada em vez de ~14).
+           Ganhei cota e DESTRUÍ a qualidade, porque os dois tipos pesquisam
+           coisas diferentes:
+
+           • type:'channel' casa o termo contra NOME/bio/keywords DO CANAL.
+             Um canal chamado literalmente "Minecraft SMP" com 4 inscritos
+             tem casamento textual perfeito e domina o ranking. Um criador
+             grande que só faz Minecraft mas se chama "Dream" não casa nada.
+             Resultado medido em log real: 489 de 560 canais (87%) com menos
+             de 1.000 inscritos — a assinatura de busca por nome.
+
+           • type:'video' casa o termo contra TÍTULO/descrição/tags DOS
+             VÍDEOS. Quem aparece é quem PUBLICA sobre o assunto, ponderado
+             por engajamento. É descoberta por conteúdo — o que queremos.
+
+           E a "ineficiência" do type:'video' não é desperdício: é SINAL.
+           Quando um canal ocupa 6 dos 50 resultados, isso significa que ele
+           produz muito sobre o tema. Contamos essa repetição em `topicHits`
+           e usamos como critério de ordenação — é a "frequência do tema nos
+           vídeos" que precisávamos para separar criador de nome-coincidência. */
         const p={part:'snippet',q:src.qv,type:'video',maxResults:50,order:src.order};
         if(src.rc)p.regionCode=src.rc;
         if(src._pt)p.pageToken=src._pt;
         const wIdx=src._w||0;
-        if(wIdx>0&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);
+        if(wIdx>0&&src.windows&&src.windows[wIdx-1])Object.assign(p,src.windows[wIdx-1]);
         searchCalls++;
+        /* AUDITORIA POR QUERY: registra cada chamada individualmente para
+           medir a conversão real de cada variação de busca. */
+        const qKey=src.qv+' ['+src.order+']';
+        const qStat=queryStats[qKey]||(queryStats[qKey]={query:src.qv,order:src.order,
+          chamadas:0,custo:0,unicos:0,duplicados:0,aprovados:0,paginas:[]});
+        qStat.chamadas++;qStat.custo+=100;
+        const pageLabel=src._pt?String(src._pt).slice(0,8):'(1ª página)';
         const r=await api('search',p);
-        (r.items||[]).forEach(it=>{const c=it.snippet?.channelId;if(c&&!collected.has(c)){collected.add(c);added++}});
+        let dupNestaChamada=0;
+        (r.items||[]).forEach(it=>{
+          const c=it.snippet?.channelId;
+          if(!c)return;
+          // Frequência do tema: quantos vídeos deste canal casaram a busca.
+          topicHits[c]=(topicHits[c]||0)+1;
+          /* REAPROVEITAMENTO: o search já foi pago (100 unidades) e devolve
+             videoId, título e descrição de cada vídeo. Guardamos tudo. Isso
+             elimina a necessidade de playlistItems.list (1 unidade POR CANAL)
+             só para redescobrir vídeos que já temos em mãos. */
+          const vid=(it.id&&it.id.videoId)||null;
+          if(vid){
+            (seedVideos[c]=seedVideos[c]||[]).push(vid);
+            const sn=it.snippet||{};
+            seedText[c]=((seedText[c]||'')+' '+(sn.title||'')+' '+(sn.description||'')).slice(0,1500);
+            if(sn.publishedAt){
+              const d=String(sn.publishedAt).slice(0,10);
+              if(!seedDates[c]||d>seedDates[c])seedDates[c]=d;
+            }
+          }
+          if(!collected.has(c)){
+            collected.add(c);added++;
+            // Atribui o canal à query que o descobriu PRIMEIRO.
+            discoveredBy[c]=qKey;
+          }else{dupNestaChamada++}
+        });
+        qStat.unicos+=added;qStat.duplicados+=dupNestaChamada;
+        qStat.paginas.push({token:pageLabel,unicos:added,dup:dupNestaChamada});
+        /* ══ AS ÚNICAS FORMAS DE UMA FONTE MORRER ══
+           (1) A API não devolveu nextPageToken: fim definitivo da paginação.
+           (2) Páginas consecutivas sem NENHUM canal novo.
+           (3) Erro permanente (no catch abaixo, após tentativas).
+           Nenhuma outra condição encerra uma query. Enquanto houver token e
+           novidade, ela continua — por mais fundo que já tenha ido. */
         if(r.nextPageToken){src._pt=r.nextPageToken}
-        else{src._pt=null;src._w=wIdx+1;if(src._w>src.windows.length)src._done=true}
-        /* Se uma página só trouxe canais repetidos, essa fonte está saturada.
-           Após 2 páginas seguidas sem novidade, encerramos a fonte para que as
-           outras variações (subnichos, ordens, países) sejam exploradas — é o
-           que garante alcançar a meta em vez de girar em falso numa fonte só. */
-        if(added===0){src._empty=(src._empty||0)+1;if(src._empty>=2)src._done=true}
+        else{src._pt=null;src._w=(src._w||0)+1;
+             if(!src.windows||src._w>src.windows.length)src._done=true}
+        /* (2) Repetição persistente. 6 páginas seguidas sem um único canal
+           novo é evidência sólida de esgotamento; menos que isso pode ser
+           apenas uma faixa de resultados sobrepostos no meio da paginação. */
+        if(added===0){src._empty=(src._empty||0)+1;if(src._empty>=6)src._done=true}
         else{src._empty=0;await sleep(SLEEP)}
+        /* Abandono por BAIXA CONVERSÃO (defeito apontado pela auditoria).
+           Antes, o único critério era "trouxe canais novos?". Uma query que
+           trazia 50 canais novos e todos reprovados continuava paginando para
+           sempre. Agora, se a query já teve chances suficientes e nenhum dos
+           canais que ela descobriu foi aprovado, ela é encerrada e o orçamento
+           vai para as outras variações. */
+        /* A avaliação de conversão NÃO pode acontecer aqui: qStat.aprovados só
+           é preenchido depois que o processBatch roda, e esta função executa
+           ANTES. A regra foi movida para depois do processamento (ver
+           "PARADA POR CONVERSÃO ZERO" no laço principal), onde os dados de
+           aprovação realmente existem. */
+        /* Rendimento DESTA fonte, com LINHA DE BASE MÓVEL.
+           A referência não é congelada nas primeiras páginas: ela acompanha a
+           própria evolução da query através de uma média móvel exponencial.
+           Assim a expectativa cai junto com o declínio natural da paginação, e
+           só uma queda ANORMAL em relação à tendência atual é sinalizada. */
+        src._rend=src._rend||[];
+        src._rend.push(added);
+        if(src._rend.length>JANELA_RENDIMENTO)src._rend.shift();
+        /* EMA: cada página novo desloca a base um pouco. ALFA baixo = base
+           lenta, memória longa; a base representa "o que esta query vinha
+           entregando ultimamente", não "o que ela entregava no começo". */
+        src._base=(src._base===undefined)?added:(ALFA_BASE*added+(1-ALFA_BASE)*src._base);
+        src._paginas=(src._paginas||0)+1;
+        noteYield(added);   // alimenta o detector de saturação global
       }catch(e){
         if(e.code===429||(e.reason||'').includes('quota'))throw e;
-        src._done=true;
+        /* Um erro numa página NÃO significa que a fonte esgotou.
+           Antes, qualquer exceção marcava _done=true e a query morria de vez —
+           inclusive um pageToken rejeitado, que é recuperável: basta reiniciar
+           a paginação daquela query. Só desistimos após falhas repetidas. */
+        src._erros=(src._erros||0)+1;
+        src._pt=null;                    // reinicia a paginação desta fonte
+        if(src._erros>=3)src._done=true;  // três falhas seguidas: aí sim desiste
       }
       return added;
     }
@@ -2871,28 +3433,170 @@ async function runSearch(){
       /* Puxa candidatos novos (ainda não processados) suficientes para o
          próximo lote. Continua paginando pelas fontes — subnichos, ordens e
          janelas de data — enquanto houver fonte viável, dentro do teto de
-         segurança. Só para quando: não há mais fonte, o orçamento de search
-         acabou, ou o pool bateu o teto de proteção. A decisão de "já temos
-         leads suficientes?" fica no laço externo, que simplesmente não chama
-         esta função quando passedLeads>=maxCh. */
-      let fresh=[...collected].filter(c=>!processedIds.has(c));
-      while(fresh.length<batchSize&&srcIdx<sources.length&&!stopFlag
-            &&searchCalls<searchBudget&&collected.size<targetPool){
+         segurança. Para quando: não há mais fonte, o orçamento acabou, o pool
+         bateu o teto, OU o universo saturou (últimas chamadas quase só
+         repetidos). A decisão de "já temos leads suficientes?" fica no laço
+         externo, que não chama esta função quando passedLeads>=maxCh. */
+      /* Metas pequenas não devem pagar a coleta de uma meta grande: pedimos
+         apenas candidatos suficientes para o que ainda falta, com folga para
+         as perdas dos filtros. */
+      const faltam=Math.max(0,maxCh-passedLeads.length);
+      /* Quantos candidatos analisar nesta rodada.
+         Antes era `faltam * 2.5`, que pressupõe ~40% de aprovação. Quando a
+         taxa real é baixa (filtros apertados), o lote ficava pequeno e a
+         busca gastava search sem nunca analisar gente suficiente — foi o caso
+         de "10 chamadas de search para 1 canal aprovado".
+         Como analisar é BARATO (channels e videos são em lote, 1 unidade por
+         50) e buscar é CARO (100 por chamada), o certo é aproveitar tudo que
+         já foi descoberto antes de pagar por mais descoberta. */
+      /* Quando falta pouco para a meta, analisar 50 canais é desperdício:
+         no log real a última rodada aprovou 6 quando faltava 1, e 5 aprovados
+         foram jogados fora no corte final. Pedimos com folga (o filtro derruba
+         a maioria) mas sem exagero. */
+      const alvoLote=faltam>=10?batchSize:Math.max(15,Math.min(batchSize,faltam*8));
+      let fresh=[...collected].filter(c=>!processedIds.has(c)&&!shownDB.has(c));
+      /* CORREÇÃO PONTUAL (gargalo medido na auditoria):
+         search é 99% da cota. Antes, a coleta buscava o LOTE INTEIRO
+         (até 5 chamadas = 500 unidades) antes de processar qualquer coisa.
+         Se aquela rodada não rendesse nada, as 500 unidades já tinham sido
+         gastas — foi exatamente o que a auditoria mediu na rodada 3.
+         Agora limitamos quantas chamadas de search uma única rodada pode
+         fazer: coletamos um pouco, processamos, e a parada inteligente
+         reavalia. Isso não muda a arquitetura — só encurta o intervalo
+         entre gastar e verificar. */
+      const buscasNestaRodada=searchCalls;
+      /* Teto de buscas por rodada. Precisa ser folgado o bastante para que
+         cada fonte consiga acumular páginas: com a coleta em largura, um teto
+         muito baixo fazia nenhuma query chegar a ser realmente explorada
+         antes de a busca terminar. */
+      /* Buscas por rodada: folgado quando falta bastante (permite paginar
+         fundo antes de processar), contido quando falta pouco. */
+      const MAX_BUSCAS_POR_RODADA=(faltam>=10)?12:3;
+      /* PROFUNDIDADE GUIADA POR RENDIMENTO, NÃO POR CONTAGEM.
+         Não existe mais teto de páginas. Uma fonte cede a vez quando o
+         rendimento dela cai — ou seja, quando as últimas páginas passam a
+         trazer poucos canais novos em relação ao que a página inteira
+         poderia render. Assim a mesma regra serve para nicho pequeno (a
+         fonte seca rápido e libera o orçamento) e para nicho grande (a fonte
+         segue paginando enquanto entrega). */
+      while(fresh.length<alvoLote&&sourcesLeft()&&!stopFlag
+            &&(searchCalls-buscasNestaRodada)<MAX_BUSCAS_POR_RODADA
+            &&searchCalls<searchBudget&&collected.size<targetPool&&!saturated()){
         const src=sources[srcIdx];
         if(src._done){srcIdx++;continue}
         await collectFrom(src,batchSize-fresh.length);
-        if(src._done)srcIdx++;
-        fresh=[...collected].filter(c=>!processedIds.has(c));
+        /* LARGURA COM PROFUNDIDADE MÍNIMA.
+           Rodar entre fontes fazendo 1 página em cada mantinha todas presas na
+           PRIMEIRA página — e as primeiras páginas de queries parecidas se
+           sobrepõem muito (nos logs reais, 244 duplicados em 500 itens).
+           Agora cada fonte avança algumas páginas antes de passar a vez: é aí
+           que aparecem os canais que a primeira página não mostra. A rotação
+           continua existindo, só não é a cada chamada. */
+        /* Cede a vez apenas se a fonte esgotou OU se o rendimento recente
+           caiu abaixo do piso. Enquanto ela continuar produzindo canais
+           novos em ritmo aceitável, permanece ativa por quantas páginas
+           forem necessárias. */
+        if(src._done||rendimentoBaixo(src)){
+          src._rend=[];          // zera a janela ao passar a vez
+          srcIdx++;
+        }
+        if(srcIdx>=sources.length){
+          /* Rotação CIRCULAR: continuamos do início, mas as fontes já
+             visitadas mantêm seu pageToken e avançam para as páginas
+             seguintes. Antes voltávamos sempre para a primeira fonte não
+             esgotada, o que fazia as últimas fontes da lista nunca receberem
+             chamada nenhuma quando o orçamento acabava antes. */
+          const restantes=sources.filter(x=>!x._done);
+          if(restantes.length){
+            srcIdx=0;
+            while(srcIdx<sources.length&&sources[srcIdx]._done)srcIdx++;
+          }else{
+            /* AS FONTES SÃO UMA AMOSTRA, NÃO O ESPAÇO DE BUSCA.
+               Ter percorrido as queries configuradas não significa que não
+               existam mais canais — significa apenas que esta amostra se
+               esgotou. Em vez de encerrar, geramos novas direções a partir do
+               nicho e continuamos, enquanto houver orçamento e meta a cumprir. */
+            const novas=expandirFontes(sources,parsedQ,orders,regionHint,windows);
+            if(novas.length){
+              const base=sources.length;
+              novas.forEach(n=>sources.push(n));
+              srcIdx=base;
+            }else{
+              srcIdx=sources.length;
+            }
+          }
+        }
+        fresh=[...collected].filter(c=>!processedIds.has(c)&&!shownDB.has(c));
       }
+      /* ORDEM DE ANÁLISE POR EVIDÊNCIA DE CONTEÚDO.
+         Analisamos primeiro quem apareceu com MAIS vídeos na busca — são os
+         criadores que de fato produzem sobre o tema. Assim, quando a meta é
+         atingida, ela foi preenchida com os mais relevantes, não com quem
+         calhou de vir primeiro na página. */
+      fresh.sort((a,b)=>(topicHits[b]||0)-(topicHits[a]||0));
       const batch=fresh.slice(0,batchSize);
       batch.forEach(c=>processedIds.add(c));
       return batch;
     }
-    // Fontes ainda utilizáveis: existe fonte não esgotada, há orçamento de
-    // search e o pool não estourou o teto. Usado para decidir se vale a pena
-    // continuar buscando quando ainda faltam leads.
+    // Fontes ainda utilizáveis: há fonte não esgotada, orçamento de search,
+    // o pool não estourou o teto E o universo ainda não saturou.
+    /* ── RENDIMENTO DE UMA FONTE ──
+       Uma página de search devolve até 50 itens. Consideramos que a fonte
+       ainda "rende" enquanto a média de canais NOVOS das últimas páginas
+       ficar acima de um piso proporcional a esse máximo.
+
+       Por que proporcional e não fixo: o que importa é a fração aproveitada
+       da página, não um número absoluto. Uma fonte que traz 8 canais novos a
+       cada 50 itens ainda está entregando; uma que traz 1 está repetindo o
+       que já temos e é melhor dar a vez a outra direção — sem matá-la, ela
+       volta na próxima rotação com o pageToken preservado. */
+    /* ── SATURAÇÃO RELATIVA A UMA LINHA DE BASE MÓVEL ──
+       O rendimento de uma query cai naturalmente conforme a paginação avança —
+       isso é o comportamento esperado, não saturação. Congelar a referência
+       nas primeiras páginas penalizaria qualquer query que ainda estivesse
+       produzindo bem, só que abaixo do pico inicial.
+
+       Por isso a base é uma MÉDIA MÓVEL EXPONENCIAL que acompanha a evolução
+       da própria fonte. A pergunta deixa de ser "caiu em relação ao início?"
+       e passa a ser "o rendimento atual destoa do que esta query vinha
+       entregando ULTIMAMENTE?".
+
+       Saturação é declarada apenas quando as duas coisas acontecem juntas:
+       (a) o rendimento recente está bem abaixo da própria tendência atual, e
+       (b) em termos absolutos já é quase nada de novo por página.
+       O critério (b) impede que uma oscilação sobre números pequenos
+       (ex.: base 2, recente 0,6) seja tratada como saturação prematura —
+       nesse regime quem decide é a regra de páginas vazias consecutivas.
+
+       Ceder a vez não mata a fonte: o pageToken é preservado. */
+    const JANELA_RENDIMENTO=4;    // páginas recentes avaliadas
+    const ALFA_BASE=0.3;          // peso da página nova na média móvel
+    const FRACAO_SATURACAO=0.25;  // quão abaixo da própria tendência
+    const PAGINAS_MINIMAS=5;      // antes disso não há tendência formada
+    function rendimentoBaixo(src){
+      const r=src._rend||[];
+      // Sem páginas suficientes, a tendência ainda não existe: continua.
+      if((src._paginas||0)<PAGINAS_MINIMAS)return false;
+      if(r.length<JANELA_RENDIMENTO)return false;
+      const base=src._base;
+      if(base===undefined||base<=0)return false;
+      const recente=r.reduce((a,b)=>a+b,0)/r.length;
+      /* (a) destoa da própria tendência recente */
+      const destoa=recente<base*FRACAO_SATURACAO;
+      /* (b) e é irrelevante em termos práticos — menos de um canal novo por
+         página em média. Sem isso, uma query que oscila entre 3 e 1 seria
+         cortada mesmo ainda entregando algo. */
+      const irrelevante=recente<1;
+      return destoa&&irrelevante;
+    }
     function sourcesLeft(){
-      return srcIdx<sources.length&&searchCalls<searchBudget&&collected.size<targetPool;
+      /* Ainda há para onde ir se: existe fonte não esgotada OU ainda é
+         possível expandir para novas direções. O fim das queries atuais não
+         é o fim do espaço de busca. */
+      const temFonte=sources.some(x=>!x._done);
+      const podeExpandir=(sources._expansao||0)<EXPANSAO_MODS.length;
+      return (temFonte||podeExpandir)&&searchCalls<searchBudget
+             &&collected.size<targetPool&&!saturated();
     }
     setStatus(t('collecting_channels'));let nextBatch=await collectNextBatch();
     while(nextBatch.length>0&&!stopFlag){
@@ -2904,14 +3608,150 @@ async function runSearch(){
          atingia maxCh e saía do laço logo em seguida — essas páginas de
          search eram pagas e jogadas fora. Agora o lote é processado
          primeiro; só buscamos mais candidatos se de fato ainda faltarem. */
-      const leads=await processBatch(batch,(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,6))));
+      const {leads,preRejections,stage,dropped}=await processBatch(batch,{filters,relevance,seenDB,seedVideos,seedText,seedDates},(p)=>setProg(baseProg+p*(90/Math.max(maxRounds,6))));
       allLeads.push(...leads);
-      let newPassed=0;for(const l of leads){const reason=relevanceCheck(l,relevance)||rejectReason(l,filters,seenDB);if(reason===null){passedLeads.push(l);newPassed++}else{rejections[reason]=(rejections[reason]||0)+1}}
+      // Acumula o funil e os descartes individuais para o relatório final.
+      if(stage){funnel.pedidos+=stage.pedidos;funnel.detalhes+=stage.detalhes;
+        funnel.prefiltro+=stage.prefiltro;funnel.leads+=stage.leads;
+        funnel.semPais+=stage.semPais||0;funnel.semInscritos+=stage.semInscritos||0;
+        Object.keys(stage.contatos||{}).forEach(k=>{funnel.contatos[k]=(funnel.contatos[k]||0)+stage.contatos[k]})}
+      if(dropped&&dropped.length)droppedAll.push(...dropped);
+      // Os leads que chegam aqui já passaram no pré-filtro (relevância, país,
+      // inscritos, já-salvo). Só falta validar o que depende dos vídeos:
+      // contato e score. rejectReason continua completo por segurança, mas
+      // agora quase tudo que ele barraria já foi barrado de graça na Fase 1.
+      let newPassed=0;for(const l of leads){const reason=relevanceCheck(l,relevance)||rejectReason(l,filters,seenDB);
+        if(reason===null){passedLeads.push(l);newPassed++;
+          // Credita a aprovação à query que descobriu este canal.
+          const qk=discoveredBy[l.channel_id];
+          if(qk&&queryStats[qk])queryStats[qk].aprovados++;}
+        else{rejections[reason]=(rejections[reason]||0)+1;
+          droppedAll.push({nome:l.channel_name,motivo:reason,etapa:'filtro final',
+            subs:l.subscribers,pais:l.country||'(vazio)',score:l.score})}}
+      // Cada motivo do pré-filtro entra com seu nome real (já salvo, fora da
+      // faixa de inscritos, fora do nicho) em vez de tudo virar "fora do nicho".
+      for(const r in preRejections)rejections[r]=(rejections[r]||0)+preRejections[r];
       const withC=leads.filter(leadHasContact).length;
       log(t('passed_line',{n:newPassed,withC,total:leads.length,passed:passedLeads.length,max:maxCh}),'k');
+      /* ══ PARADA POR CONVERSÃO ZERO ══
+         Executa AQUI (e não durante a coleta) porque só neste ponto
+         queryStats[].aprovados já foi creditado pelo laço acima.
+
+         (2) Query improdutiva: toda fonte cuja query já trouxe canais
+             suficientes e não gerou NENHUM aprovado é encerrada, liberando o
+             orçamento para as outras variações.
+         (3) Pesquisa improdutiva: se rodadas consecutivas não aprovarem
+             ninguém, encerramos a busca inteira — melhor entregar poucos
+             canais barato do que insistir até gastar milhares. */
+      /* ══ ENCERRAMENTO DE QUERY POR EVIDÊNCIA PERSISTENTE ══
+         Antes, bastava a query ter trazido 15+ canais e nenhum aprovado NA
+         PRIMEIRA RODADA para ser encerrada. Com uma única página (50 vídeos,
+         ~30 canais), isso matava todas as queries de uma vez — foi o que o
+         log mostrou: 5 queries, 1 chamada cada, todas encerradas, "acabaram
+         os canais". Uma página não é amostra de nada: o YouTube tem dezenas
+         de páginas por termo.
+
+         Agora exigimos evidência real de improdutividade: a query precisa ter
+         explorado várias páginas E acumulado muitos candidatos sem produzir
+         um único aprovado. Enquanto ela ainda tem páginas e traz canais
+         novos, continua viva. */
+      /* ABANDONO POR CONVERSÃO — REMOVIDO.
+         A ordenação do YouTube é por relevância/popularidade: as primeiras
+         páginas concentram canais grandes, repetidos e já conhecidos. Zero
+         aprovados nessas páginas NÃO é evidência de que a query é ruim — é o
+         comportamento esperado da ordenação. Os canais do tamanho procurado
+         vivem nas páginas profundas, justamente as que essa regra impedia de
+         alcançar. Conversão deixou de ser critério de morte de query. */
+      /* Parada global só depois de EXPLORAÇÃO REAL.
+         Rodadas sem aprovação no início são normais — a busca ainda está
+         raspando a superfície. Só encerramos quando já houve exploração
+         suficiente (páginas e candidatos) e mesmo assim nada passou. */
+      if(newPassed===0)zeroRounds++;else zeroRounds=0;
+      /* Só encerramos a pesquisa inteira por falta de aprovações depois de
+         exploração REALMENTE profunda. Com poucas páginas não há evidência de
+         escassez — há evidência de que a ordenação por popularidade ainda não
+         foi ultrapassada. */
+      const exploracaoSuficiente=searchCalls>=25&&collected.size>=600;
+      if(zeroRounds>=ZERO_ROUNDS_LIMIT&&exploracaoSuficiente){
+        stoppedEarly=true;
+        stopInfo={canais:passedLeads.length,cota:searchQuotaSpent,
+          medio:passedLeads.length?Math.round(searchQuotaSpent/passedLeads.length):null,
+          marginal:null,razao:'∞',conversaoZero:true};
+        break;
+      }
       setProg(Math.min(95,(passedLeads.length/maxCh)*95));
       // Meta atingida → paramos (comportamento eficiente de cota, mantido).
       if(passedLeads.length>=maxCh)break;
+
+      /* ── AVALIAÇÃO DE RETORNO DECRESCENTE ──
+         Compara o custo do que acabamos de obter (marginal) com o custo médio
+         de tudo que já obtivemos. Se o marginal disparar acima da média por
+         rodadas consecutivas, cada canal adicional está saindo caro demais e
+         encerramos com o que temos. */
+      const gastoAteAgora=searchQuotaSpent;
+      const gastoRodada=gastoAteAgora-(efficiency.length?efficiency[efficiency.length-1].acum:0);
+      const custoMedio=passedLeads.length?gastoAteAgora/passedLeads.length:Infinity;
+      const custoMarginal=newPassed>0?gastoRodada/newPassed:Infinity;
+      const razao=(custoMedio>0&&isFinite(custoMedio))?(custoMarginal/custoMedio):0;
+      efficiency.push({rodada:round,novos:newPassed,gasto:gastoRodada,acum:gastoAteAgora,
+                       medio:custoMedio,marginal:custoMarginal,razao});
+      log(t('efficiency_line',{r:round,n:newPassed,g:fmtN(gastoRodada),
+            m:isFinite(custoMarginal)?fmtN(Math.round(custoMarginal)):'∞',
+            a:isFinite(custoMedio)?fmtN(Math.round(custoMedio)):'—'}),'i');
+      /* REDE DE SEGURANÇA nº 1: NADA está passando.
+         Se já analisamos muitos canais e gastamos cota relevante sem aprovar
+         praticamente ninguém, os filtros são incompatíveis com o nicho. Não
+         adianta continuar — cada rodada custa e não vai mudar o resultado.
+         Este caso não é coberto pelo critério marginal/média, que precisa de
+         pelo menos alguns aprovados para calcular uma média. */
+      /* Aborto por ausência de resultado.
+         Elevado: com filtros restritivos as primeiras rodadas naturalmente
+         aprovam zero (a ordenação por relevância traz primeiro os canais
+         grandes, que o teto de inscritos rejeita). Parar em 1.000 unidades
+         cortava a busca justamente antes das páginas onde estão os canais do
+         tamanho procurado. */
+      if(passedLeads.length<1&&gastoAteAgora>=2500&&funnel.prefiltro>=250){
+        stoppedEarly=true;
+        stopInfo={canais:passedLeads.length,cota:gastoAteAgora,
+                  medio:passedLeads.length?Math.round(custoMedio):null,
+                  marginal:null,razao:'∞',semResultado:true};
+        break;
+      }
+      /* REDE DE SEGURANÇA nº 2 para nichos secos.
+         O critério marginal/média precisa de amostra (MIN_RESULTS canais) para
+         ser confiável — mas num nicho onde quase nada qualifica, chegar a essa
+         amostra já custa caro. Se o custo MÉDIO por canal ficar absurdo, isso
+         por si só prova que a busca não é economicamente viável, mesmo sem
+         confirmação estatística. */
+      if(passedLeads.length>=6&&custoMedio>=CEILING_PER_CHANNEL){
+        stoppedEarly=true;
+        stopInfo={canais:passedLeads.length,cota:gastoAteAgora,
+                  medio:Math.round(custoMedio),
+                  marginal:isFinite(custoMarginal)?Math.round(custoMarginal):null,
+                  razao:isFinite(razao)?razao.toFixed(1):'∞',teto:true};
+        break;
+      }
+      // Só avaliamos parada com amostra suficiente e resultado mínimo aceitável.
+      /* Com lotes menores (3 buscas/rodada), uma rodada isolada sem aprovação
+         é ruído normal, não tendência. A avaliação exige mais histórico para
+         não parar por acaso — a histerese já cobre a tendência real. */
+      const podeAvaliar=passedLeads.length>=MIN_RESULTS&&gastoAteAgora>=MIN_QUOTA_BASE
+                        &&efficiency.length>=3;
+      if(podeAvaliar&&(!isFinite(custoMarginal)||razao>=STOP_RATIO)){
+        badStreak++;
+        /* Salto extremo (ou rodada sem nenhum aprovado) não precisa de
+           confirmação: a evidência já é conclusiva e esperar mais uma rodada
+           custaria exatamente a cota que queremos economizar. */
+        const conclusivo=!isFinite(custoMarginal)||razao>=STOP_RATIO_HARD;
+        if(badStreak>=STOP_STREAK||conclusivo){
+          stoppedEarly=true;
+          stopInfo={canais:passedLeads.length,cota:gastoAteAgora,
+                    medio:Math.round(custoMedio),
+                    marginal:isFinite(custoMarginal)?Math.round(custoMarginal):null,
+                    razao:isFinite(razao)?razao.toFixed(1):'∞'};
+          break;
+        }
+      }else if(razao<STOP_RATIO){badStreak=0}
       // Ainda faltam leads: continuamos enquanto houver fonte utilizável OU
       // ainda existam candidatos coletados à espera de processamento. Só
       // declaramos "esgotado" quando não há mais NADA a tentar. O limite de
@@ -2927,14 +3767,171 @@ async function runSearch(){
       }
     }
     const dedup=new Set();const uniquePassed=passedLeads.filter(l=>{if(dedup.has(l.channel_id))return false;dedup.add(l.channel_id);return true});
-    uniquePassed.sort((a,b)=>b.score-a.score);const final=uniquePassed.slice(0,maxCh);
+    /* Ordena por afinidade com os refinamentos e depois por score. Assim
+       "minecraft, minecraft smp" traz os canais de SMP no topo — sem excluir
+       os demais canais de minecraft, que continuam válidos. */
+    /* Ordenação final por EVIDÊNCIA DE CONTEÚDO, depois afinidade com o
+       subnicho, depois score. topicHits privilegia quem publica muito sobre
+       o tema — separando o criador real do canal que só tem o nome parecido. */
+    uniquePassed.forEach(l=>{l._ref=refScore(l,relevance);l._hits=topicHits[l.channel_id]||0});
+    uniquePassed.sort((a,b)=>(b._hits-a._hits)||(b._ref-a._ref)||(b.score-a.score));
+    const final=uniquePassed.slice(0,maxCh);
+    /* Registra os canais entregues para que a PRÓXIMA busca traga outros. */
+    final.forEach(l=>shownDB.add(l.channel_id));
+    saveShown(shownDB);
     State.results=final;setProg(100);logLine();
     const totalWithContact=allLeads.filter(leadHasContact).length;
     log(t('analysed_line',{n:allLeads.length,r:round,c:totalWithContact}),'k');
+    /* ══ RELATÓRIO DE FUNIL ══
+       Mostra quantos canais entram e saem de CADA etapa, para que nenhum
+       desaparecimento fique inexplicado. */
+    funnel.coletados=collected.size;
+    logLine();
+    log('FUNIL DA PESQUISA','k');
+    const passo=(rot,n,ant)=>{
+      const perda=(ant!==undefined&&ant!==null)?(ant-n):0;
+      log(`  ${String(n).padStart(4)}  ${rot}${perda>0?`   (−${perda})`:''}`,perda>0?'d':'i');
+    };
+    passo('canais coletados na busca',funnel.coletados,null);
+    passo('enviados para análise',funnel.pedidos,funnel.coletados);
+    passo('detalhes obtidos (channels.list)',funnel.detalhes,funnel.pedidos);
+    passo('passaram no pré-filtro',funnel.prefiltro,funnel.detalhes);
+    passo('viraram lead (com vídeos)',funnel.leads,funnel.prefiltro);
+    passo('aprovados em todos os filtros',passedLeads.length,funnel.leads);
+    passo('entregues (limite da meta)',final.length,passedLeads.length);
+    if(funnel.coletados>funnel.pedidos){
+      log(`  nota: ${funnel.coletados-funnel.pedidos} coletados não chegaram a ser analisados`,'d');
+      log('  (a meta foi atingida antes, ou a coleta parou por cota/fontes)','d');
+    }
+    logLine();
     const rejEntries=Object.entries(rejections).sort((a,b)=>b[1]-a[1]);
-    if(rejEntries.length){log(t('filtered_out'),'d');rejEntries.slice(0,6).forEach(([reason,n])=>log(`  ${n} — ${reason}`,'d'))}
+    if(rejEntries.length){log(t('filtered_out'),'d');rejEntries.forEach(([reason,n])=>log(`  ${n} — ${reason}`,'d'))}
+    /* ══ DIAGNÓSTICO DE APROVAÇÃO ZERO ══
+       Quando nada é aprovado, o motivo precisa estar explícito e no fim do
+       log — não espalhado em seções que podem ser cortadas. Sem isso é
+       impossível saber se o problema foi filtro, contato ou coleta. */
+    if(!final.length){
+      logLine();
+      log('POR QUE NENHUM CANAL FOI APROVADO','k');
+      const semContato=funnel.contatos.nenhum||0;
+      const totalRej=rejEntries.reduce((a,[,n])=>a+n,0);
+      log(`  canais analisados          : ${funnel.detalhes}`,'i');
+      log(`  descartados por sem contato: ${semContato}`,semContato?'d':'i');
+      log(`  viraram lead               : ${funnel.leads}`,'i');
+      log(`  rejeitados por filtros     : ${totalRej}`,totalRej?'d':'i');
+      if(rejEntries.length){
+        log('  filtro que mais rejeitou   : '+rejEntries[0][0]+' ('+rejEntries[0][1]+')','d');
+      }
+      if(funnel.leads>0&&totalRej===0){
+        log('  ATENÇÃO: leads foram criados mas nenhuma rejeição foi registrada.','d');
+        log('  Isso indica que a busca parou antes de aplicar os filtros.','d');
+      }
+      if(funnel.leads===0&&funnel.detalhes>0){
+        log('  Todos os canais analisados foram descartados antes de virar lead.','d');
+        log('  Causa típica: nenhum contato encontrado no canal nem nos vídeos.','d');
+      }
+      if(funnel.detalhes===0){
+        log('  Nenhum canal chegou a ser analisado — a coleta parou cedo.','d');
+      }
+    }
+    /* Descartes individuais: nome do canal + regra exata que o eliminou. */
+    if(droppedAll.length){
+      logLine();
+      log(`DESCARTES INDIVIDUAIS (${droppedAll.length} canais)`,'k');
+      droppedAll.slice(0,60).forEach(d=>{
+        const det=[];
+        if(d.subs!==undefined)det.push(fmtN(d.subs)+' subs');
+        if(d.pais)det.push('país '+d.pais);
+        if(d.score!==undefined)det.push('score '+d.score);
+        log(`  ${d.nome} — ${d.motivo}  [${d.etapa}${det.length?' · '+det.join(' · '):''}]`,'d');
+      });
+      if(droppedAll.length>60)log(`  … e mais ${droppedAll.length-60} canais`,'d');
+    }
     log(t('results_arrow',{n:final.length}),'k');
-    if(exhausted&&final.length<maxCh)log(t('sources_exhausted',{q:query}),'i');
+    /* Relatório da decisão de parada: o usuário precisa entender POR QUE
+       recebeu menos que a meta, e ver que foi uma escolha econômica. */
+    if(stoppedEarly&&stopInfo){
+      logLine();
+      if(stopInfo.conversaoZero){
+        log(t('stop_zero_conv',{n:ZERO_ROUNDS_LIMIT}),'k');
+        log('  '+t('stop_smart_hint'),'d');
+      }else{
+      log(t('stop_smart_title'),'k');
+      log('  '+t('stop_smart_body',{c:stopInfo.canais,q:fmtN(stopInfo.cota),
+        m:fmtN(stopInfo.medio),x:stopInfo.marginal!==null?fmtN(stopInfo.marginal):'∞',
+        r:stopInfo.razao}),'i');
+      log('  '+t('stop_smart_hint'),'d');
+      }
+      logLine();
+    }else if(exhausted&&final.length<maxCh)log(t('sources_exhausted',{q:query}),'i');
+    /* ══ AUDITORIA DE DESCOBERTA: CONVERSÃO POR QUERY ══
+       Mostra o que cada variação de busca realmente entregou, para revelar
+       quais queries valem as 100 unidades e quais só queimam cota. */
+    const qEntries=Object.entries(queryStats)
+      .map(([k,v])=>({...v,chave:k,
+        conv:v.unicos?(v.aprovados/v.unicos):0,
+        custoPorAprovado:v.aprovados?Math.round(v.custo/v.aprovados):Infinity}))
+      .sort((a,b)=>b.aprovados-a.aprovados||a.custoPorAprovado-b.custoPorAprovado);
+    if(qEntries.length){
+      logLine();
+      log('RANKING DE QUERIES POR EFICIÊNCIA','k');
+      qEntries.forEach(q=>{
+        const cpa=isFinite(q.custoPorAprovado)?fmtN(q.custoPorAprovado):'—';
+        const tone=q.aprovados===0?'d':'i';
+        log(`  "${q.query}" [${q.order}]`,tone);
+        log(`     ${q.chamadas} chamada(s) · ${fmtN(q.custo)} unid · ${q.unicos} únicos · `+
+            `${q.duplicados} dup · ${q.aprovados} aprovados · conv ${(q.conv*100).toFixed(0)}% · `+
+            `${cpa}/aprovado`,tone);
+      });
+      const zeradas=qEntries.filter(q=>q.aprovados===0);
+      if(zeradas.length){
+        const desperdicio=zeradas.reduce((a,q)=>a+q.custo,0);
+        logLine();
+        log(`QUERIES COM CONVERSÃO ZERO: ${zeradas.length} de ${qEntries.length}`,'d');
+        log(`  desperdiçaram ${fmtN(desperdicio)} unidades `+
+            `(${Math.round(desperdicio/searchQuotaSpent*100)}% da cota da pesquisa)`,'d');
+        zeradas.forEach(q=>log(`  · "${q.query}" [${q.order}] — ${fmtN(q.custo)} unid, ${q.unicos} canais, 0 aprovados`,'d'));
+      }
+    }
+    /* ══ RELATÓRIO DE COTA POR ENDPOINT ══ */
+    if(apiTele){
+      logLine();
+      log('CONSUMO DE COTA POR ENDPOINT','k');
+      const eps=Object.keys(apiTele.calls).sort((a,b)=>(apiTele.units[b]||0)-(apiTele.units[a]||0));
+      let tot=0;
+      eps.forEach(ep=>{
+        const n=apiTele.calls[ep],u=apiTele.units[ep];tot+=u;
+        log(`  ${ep.padEnd(14)} ${String(n).padStart(4)} chamadas × ${Math.round(u/n)} = ${fmtN(u)} unidades`,'i');
+      });
+      log(`  ${'TOTAL'.padEnd(14)} ${String(apiTele.order.length).padStart(4)} chamadas         = ${fmtN(tot)} unidades`,'k');
+      if(eps.length){
+        const maior=eps[0];
+        log(`  → etapa que mais consumiu: ${maior} (${Math.round((apiTele.units[maior]/tot)*100)}% da cota)`,'d');
+      }
+      const hits=Object.values(apiTele.cacheHits).reduce((a,b)=>a+b,0);
+      const coal=Object.values(apiTele.coalesced).reduce((a,b)=>a+b,0);
+      log(`  → cache evitou ${hits} chamadas · coalescência evitou ${coal}`,'d');
+      const repet=Object.entries(apiTele.sigs).filter(([,v])=>v>1);
+      log(repet.length?`  → ATENÇÃO: ${repet.length} URLs chamadas mais de uma vez (redundância)`
+                      :'  → nenhuma chamada de rede repetida',repet.length?'d':'i');
+    }
+    /* ══ QUALIDADE DOS DADOS RECEBIDOS ══ */
+    logLine();
+    log('DADOS RECEBIDOS DA API','k');
+    log(`  canais sem país declarado    : ${funnel.semPais}`,'i');
+    log(`  canais com inscritos ocultos : ${funnel.semInscritos}`,'i');
+    /* ══ CONTATOS ENCONTRADOS ══ */
+    logLine();
+    log('CONTATOS EXTRAÍDOS','k');
+    [['E-mail','email'],['Discord','discord'],['Instagram','instagram'],
+     ['X / Twitter','twitter'],['TikTok','tiktok'],['Site','website'],['LinkedIn','linkedin']]
+      .forEach(([rot,k])=>log(`  ${rot.padEnd(13)}: ${funnel.contatos[k]||0}`,'i'));
+    log(`  ${'Sem contato'.padEnd(13)}: ${funnel.contatos.nenhum||0}  (descartados)`,'d');
+    // Eficiência final da pesquisa — a métrica que governa a arquitetura.
+    if(final.length){
+      log(`Eficiência: ${final.length} canais por ${fmtN(searchQuotaSpent)} de cota `+
+          `(${fmtN(Math.round(searchQuotaSpent/final.length))} por canal)`,'k');
+    }
     if(!final.length){log('','d');log(t('no_channels_passed'),'e')}
     else{log('','d');log(t('top5'),'i');final.slice(0,5).forEach((l,i)=>{const cc=['discord','twitter','email','instagram','tiktok'].filter(c=>l[c]).join(', ')||t('no_contact');log(`  ${i+1}. ${l.channel_name} — ${fmtN(l.subscribers)} subs — Score ${l.score} — ${cc}`,'k')}); renderChannels(final)}
     const badge=$('run-badge');badge.textContent=t('results_channels_found',{n:final.length});badge.style.display=final.length?'':'none';
@@ -2995,7 +3992,7 @@ function renderChannels(leads){
 function toggleMore(btn){const box=btn.parentNode;if(btn.dataset.open){box.querySelectorAll('.extra-c').forEach(e=>e.remove());btn.textContent=`+${JSON.parse(btn.getAttribute('data-pills')).length} ${t('more_suffix')}`;delete btn.dataset.open}else{JSON.parse(btn.getAttribute('data-pills')).forEach(h=>{const d=document.createElement('div');d.innerHTML=h;const a=d.firstChild;a.classList.add('extra-c');btn.before(a)});btn.textContent=`− ${t('less_suffix')}`;btn.dataset.open='1'}}
 
 /* ══ SAVE ══ */
-function saveResults(){let add=0,upd=0;State.results.forEach(l=>{const i=State.leads.findIndex(x=>x.channel_id===l.channel_id);if(i>=0){State.leads[i]={...State.leads[i],...l,status:State.leads[i].status,notes:State.leads[i].notes,is_favorite:State.leads[i].is_favorite};upd++}else{State.leads.push(l);add++}});persistLeads();log(t('saved_summary',{add,upd}),'k');$('btn-save').style.display='none';$('btn-save-sidebar').style.display='none';setStatus(t('saved_to_pipeline',{n:add}));renderDash()}
+function saveResults(){let add=0,upd=0;State.results.forEach(l0=>{const {rel_text,country_candidates,...l}=l0;const i=State.leads.findIndex(x=>x.channel_id===l.channel_id);if(i>=0){State.leads[i]={...State.leads[i],...l,status:State.leads[i].status,notes:State.leads[i].notes,is_favorite:State.leads[i].is_favorite};upd++}else{State.leads.push(l);add++}});persistLeads();log(t('saved_summary',{add,upd}),'k');$('btn-save').style.display='none';$('btn-save-sidebar').style.display='none';setStatus(t('saved_to_pipeline',{n:add}));renderDash()}
 
 /* ══ PIPELINE ══ */
 const AF_CHANNELS=['email','discord','twitter','instagram'];
@@ -4232,13 +5229,23 @@ function showAC(q){
   // data attribute and read it from a listener instead.
   list.innerHTML=suggestions.map(s=>`<div class="autocomplete-item" data-val="${esc(s)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>${esc(s)}</div>`).join('');
   list.querySelectorAll('.autocomplete-item').forEach(el=>{
-    el.addEventListener('click',()=>selectAC(el.getAttribute('data-val')||''));
+    // Usar mousedown + preventDefault: assim o clique numa sugestão não tira o
+    // foco do input antes de tempo nem dispara qualquer sequência de eventos
+    // que pudesse acionar a busca. Selecionar uma sugestão apenas PREENCHE o
+    // campo — NUNCA inicia a pesquisa. A busca só roda com Enter ou no botão.
+    el.addEventListener('mousedown',ev=>{ev.preventDefault();selectAC(el.getAttribute('data-val')||'')});
   });
   list.classList.add('open');acVisible=true;
 }
 function hideAC(){const list=$('autocomplete-list');if(list){list.classList.remove('open');}acVisible=false;}
-function selectAC(val){$('q').value=val;hideAC();}
-function handleSearchKey(e){if(e.key==='Enter'){hideAC();runSearch();}}
+function selectAC(val){$('q').value=val;hideAC();$('q').focus();}
+// Enter dispara a busca — mas só quando o foco está de fato no campo de busca,
+// nunca por um Enter "vazado" de outro lugar da página.
+function handleSearchKey(e){
+  if(e.key==='Enter'){e.preventDefault();hideAC();runSearch();}
+}
+// Clicar fora da barra apenas FECHA o autocomplete. Não tem, e não deve ter,
+// nenhum efeito colateral de iniciar pesquisa.
 document.addEventListener('click',e=>{if(!e.target.closest('.search-bar-wrap'))hideAC();});
 
 
@@ -4264,17 +5271,75 @@ function parseQuery(raw){
 }
 
 /* Each refinement is sent combined with the niche. */
+/* Gera novas direções de busca quando as fontes configuradas se esgotam.
+   Cada rodada de expansão aplica um conjunto diferente de modificadores de
+   FORMATO sobre o nicho — não altera o assunto, apenas alcança criadores que
+   as queries anteriores não tocaram. Retorna [] quando não há mais o que
+   expandir, e só então a busca realmente termina. */
+const EXPANSAO_MODS=[
+  ['gameplay','tutorial','guide'],
+  ['tips','review','best'],
+  ['how to','walkthrough','tricks'],
+  ['live','stream','highlights'],
+  ['update','news','new']
+];
+function expandirFontes(sources,parsedQ,orders,regionHint,windows){
+  const nicho=(parsedQ&&parsedQ.niche)||'';
+  if(!nicho)return[];
+  const jaUsadas=new Set(sources.map(s=>s.qv));
+  const nivel=sources._expansao||0;
+  if(nivel>=EXPANSAO_MODS.length)return[];
+  sources._expansao=nivel+1;
+  const novas=[];
+  for(const mod of EXPANSAO_MODS[nivel]){
+    const qv=nicho+' '+mod;
+    if(jaUsadas.has(qv))continue;
+    for(const order of orders){
+      novas.push({qv,order,rc:regionHint,windows:[...(windows||[])]});
+    }
+  }
+  return novas;
+}
 function buildQueryVariants(raw){
   const q=parseQuery(raw);
   if(!q.niche)return[];
-  if(!q.refinements.length)return[q.niche];
   const out=[];
+  if(!q.refinements.length){
+    /* Nicho sem refinamento é onde a diversificação MAIS importa: sem ela
+       teríamos uma única query e dependeríamos só de paginação, que satura. */
+    out.push(q.niche);
+    /* Poucos modificadores: a diversidade principal agora vem das janelas de
+       data e das 3 ordens (como no original). Modificadores demais criavam
+       fontes de baixa conversão — a auditoria mostrou queries com 0 aprovados. */
+    ['gameplay','tutorial'].forEach(m=>out.push(q.niche+' '+m));
+    return[...new Set(out)];
+  }
   q.refinements.forEach(r=>{
     const low=r.toLowerCase(),n=q.niche.toLowerCase();
     // "minecraft smp" already contains the niche — don't duplicate it
     out.push(low.includes(n)?r:(q.niche+' '+r));
   });
+  /* Variantes COMBINADAS: os refinamentos são termos de busca, então cruzá-los
+     traz canais que uma consulta isolada não acharia. Limitado a poucas
+     variantes — cada fonte extra custa chamadas de search. */
+  const refs=q.refinements.map(r=>{
+    const low=r.toLowerCase(),n=q.niche.toLowerCase();
+    return low.includes(n)?r.slice(n.length).trim()||r:r;
+  }).filter(Boolean);
+  for(let i=0;i<refs.length&&out.length<5;i++){
+    for(let j=i+1;j<refs.length&&out.length<5;j++){
+      out.push(`${q.niche} ${refs[i]} ${refs[j]}`);
+    }
+  }
   out.push(q.niche);
+  /* DIVERSIFICAÇÃO DE QUERIES.
+     Medido: 10 queries distintas rendem ~1,7x mais canais únicos que 10
+     páginas da mesma query (a paginação satura rápido; cada query nova
+     explora outra região do nicho). Como search é o item mais caro (100
+     unidades), diversificar é a alavanca de eficiência mais forte.
+     Os modificadores são termos genéricos de FORMATO de conteúdo — não
+     alteram o nicho, apenas alcançam criadores que a query base não pega. */
+  for(const m of ['gameplay','tutorial']){if(out.length>=6)break;out.push(q.niche+' '+m)}
   return[...new Set(out)];
 }
 
@@ -4291,23 +5356,63 @@ function buildRelevance(raw){
   const q=parseQuery(raw);
   const nicheTokens=tokenize(q.niche);
   const refTokens=q.refinements.map(r=>{
-    // strip tokens the niche already has, so "minecraft smp" tests on "smp"
-    const own=tokenize(r).filter(w=>!nicheTokens.includes(w));
-    return own.length?own:tokenize(r);
+    /* Para os refinamentos usamos um tokenizador mais permissivo: termos
+       curtos são comuns e significativos ("no-gi", "3d", "ai", "lo-fi",
+       "vr", "f1"). O tokenize padrão descarta palavras de até 2 letras, o
+       que fazia "jiu-jitsu no-gi" perder "no" e "gi" e cair num fallback
+       que reusava o nicho inteiro — aí TODO canal do nicho ganhava
+       afinidade máxima e a ordenação por subnicho deixava de funcionar. */
+    const own=String(r||'').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .split(/[^a-z0-9]+/)
+      .filter(w=>w.length>0&&!nicheTokens.includes(w));
+    return own;
   }).filter(a=>a.length);
   return{nicheTokens,refTokens,active:nicheTokens.length>0};
 }
 function leadText(l){
-  return [l.channel_name,l.description,l.language].join(' ').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // rel_text traz título do canal + bio + títulos/descrições de vídeos, então
+  // o refinamento pode casar com o conteúdo real do canal. Se não existir
+  // (leads antigos/importados), cai no texto básico.
+  const base=l.rel_text||[l.channel_name,l.description,l.language].join(' ');
+  return base.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
+/* O texto após a vírgula é TERMO DE BUSCA, não filtro.
+   "minecraft, minecraft smp" quer dizer: procure minecraft, e também procure
+   por conteúdo de SMP — não "só aceite canais que escrevam SMP na bio".
+   Exigir o refinamento no texto do canal matava canais legítimos (um canal
+   de SMP raramente escreve "smp" na descrição) e, para compensar a perda,
+   o sistema inflava o pool e gastava cota à toa. Os refinamentos continuam
+   valendo onde importam: geram consultas extras ao YouTube (buildQueryVariants)
+   e ordenam os resultados por afinidade (refScore). Aqui, só o NICHO é
+   exigido — é ele que garante que o canal é do assunto certo. */
 function relevanceCheck(l,rel){
   if(!rel||!rel.active)return null;
   const hay=leadText(l);
   if(!rel.nicheTokens.some(tok=>hay.includes(tok)))return t('reason_off_niche');
-  if(!rel.refTokens.length)return null;
-  if(!rel.refTokens.some(group=>group.some(tok=>hay.includes(tok))))return t('reason_off_terms');
   return null;
+}
+/* Afinidade com os refinamentos: 0 quando não há refinamento, senão a fração
+   de grupos de refinamento que aparecem no texto do canal/vídeos. Usado só
+   para ORDENAR (quem bate o subnicho aparece primeiro), nunca para excluir. */
+function tokenHit(hay,tok){
+  /* Tokens curtos casam apenas como PALAVRA INTEIRA. Com substring, "no"
+     (de "no-gi") casava dentro de "kimono" e dava afinidade máxima a
+     canais que nada tinham a ver com o subnicho. Tokens longos seguem
+     casando por substring, o que ajuda com plurais e flexões. */
+  if(tok.length<=3){
+    return new RegExp('(^|[^a-z0-9])'+tok+'([^a-z0-9]|$)').test(hay);
+  }
+  return hay.includes(tok);
+}
+function refScore(l,rel){
+  if(!rel||!rel.refTokens||!rel.refTokens.length)return 0;
+  const hay=leadText(l);
+  let hits=0;
+  // Um refinamento conta quando TODOS os seus tokens aparecem: "no-gi" é a
+  // expressão inteira, não "no" OU "gi" soltos.
+  for(const group of rel.refTokens){if(group.every(tok=>tokenHit(hay,tok)))hits++}
+  return hits/rel.refTokens.length;
 }
 
 /* ══ DUAL COUNTRY FILTER ══ */
