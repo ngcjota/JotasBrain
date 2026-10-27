@@ -1,41 +1,47 @@
 {
   "name": "jotas-brain",
   "version": "1.0.0",
-  "description": "Jota's Brain — Prospecção de Criadores",
+  "description": "Jota's Brain — prospecção de criadores do YouTube",
   "main": "main.js",
-  "author": "Jota's Brain",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --publish never",
-    "dist:win": "electron-builder --win",
-    "dist:portable": "electron-builder --win portable"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
+    "electron": "^39.8.10",
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.jotasbrain.prospeccao",
+    "appId": "com.jotasbrain.desktop",
     "productName": "Jota's Brain",
-    "publish": null,
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "index.html",
       "main.js",
-      "icon.png"
+      "preload.js",
+      "icon.png",
+      "icon.ico",
+      "qrcode.min.js"
+    ],
+    "extraResources": [
+      {
+        "from": "discord-presence.json",
+        "to": "discord-presence.json"
+      }
     ],
     "win": {
+      "icon": "icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
-      ],
-      "icon": "icon.png"
+        "nsis",
+        "portable"
+      ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Jota's Brain"
+      "allowToChangeInstallationDirectory": true
     },
     "portable": {
       "artifactName": "JotasBrain-Portable.exe"
