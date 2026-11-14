@@ -23,6 +23,39 @@ contextBridge.exposeInMainWorld('jotasBrain', {
   // YTJobs: lista pública de vagas (sem login)
   ytjobsCollect(data) { return ipcRenderer.invoke('jotas-brain:ytjobs-collect', { pages: data && Number.isInteger(data.pages) ? data.pages : 1 }); },
   ytjobsDetail(id) { return ipcRenderer.invoke('jotas-brain:ytjobs-detail', { id: String(id || '').slice(0, 12) }); },
+  // Reddit: conta oficial (OAuth) ou feed público. Tokens nunca passam por aqui.
+  redditStatus() { return ipcRenderer.invoke('jotas-brain:reddit-status'); },
+  redditConnect(data) { return ipcRenderer.invoke('jotas-brain:reddit-connect', { clientId: data && typeof data.clientId === 'string' ? data.clientId.slice(0, 60) : '' }); },
+  redditDisconnect() { return ipcRenderer.invoke('jotas-brain:reddit-disconnect'); },
+  redditCollect(data) { return ipcRenderer.invoke('jotas-brain:reddit-collect', { rss: !!(data && data.rss) }); },
+  // Segundo plano: iniciar com o Windows, bandeja e notificações
+  bgGet() { return ipcRenderer.invoke('jotas-brain:bg-get'); },
+  bgSet(data) {
+    const d = {};
+    if (data && typeof data.openAtLogin === 'boolean') d.openAtLogin = data.openAtLogin;
+    if (data && typeof data.keepInTray === 'boolean') d.keepInTray = data.keepInTray;
+    return ipcRenderer.invoke('jotas-brain:bg-set', d);
+  },
+  notify(data) {
+    return ipcRenderer.invoke('jotas-brain:notify', {
+      title: data && typeof data.title === 'string' ? data.title.slice(0, 120) : '',
+      body: data && typeof data.body === 'string' ? data.body.slice(0, 300) : '',
+      jobId: data && typeof data.jobId === 'string' ? data.jobId.slice(0, 40) : '',
+      silent: !!(data && data.silent)
+    });
+  },
+  onOpenJob(callback) {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, d) => callback({ id: d && typeof d.id === 'string' ? d.id.slice(0, 40) : '' });
+    ipcRenderer.on('jotas-brain:open-job', handler);
+    return () => ipcRenderer.removeListener('jotas-brain:open-job', handler);
+  },
+  onTrayCollect(callback) {
+    if (typeof callback !== 'function') return () => {};
+    const handler = () => callback();
+    ipcRenderer.on('jotas-brain:tray-collect', handler);
+    return () => ipcRenderer.removeListener('jotas-brain:tray-collect', handler);
+  },
   onXAuth(callback) {
     if (typeof callback !== 'function') return () => {};
     const handler = (_event, d) => callback({ loggedIn: !!(d && d.loggedIn) });

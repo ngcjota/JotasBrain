@@ -1,5 +1,5 @@
 // Processo principal do Electron: janela do app e presença no Discord.
-const { app, BrowserWindow, shell, ipcMain, dialog, session } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, dialog, session, Tray, Menu, Notification, nativeImage, safeStorage } = require('electron');
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
@@ -48,7 +48,9 @@ ipcMain.on('jotas-brain:update-presence', (event, data) => {
     if (cleanViewName) currentView = cleanViewName;
   }
   if (Number.isSafeInteger(data.leadCount) && data.leadCount >= 0) currentLeadCount = data.leadCount;
+  const prevLocale = currentLocale;
   currentLocale = data.language === 'en-US' ? 'en-US' : 'pt-BR';
+  if (tray && prevLocale !== currentLocale) trayUpdate();
   publishPresence();
 });
 
@@ -264,14 +266,15 @@ function stopDiscordPresence() {
   discordReady = false;
 }
 
-function createWindow() {
+function createWindow(startHidden) {
   mainWindow = new BrowserWindow({
+    show: !startHidden,
     width: 1280,
     height: 820,
     minWidth: 980,
     minHeight: 640,
-    backgroundColor: '#08080d',
-    title: 'Jota’s Brain — Prospecção de Criadores',
+    backgroundColor: '#0B0B0D',
+    title: 'BRAIN',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
@@ -309,6 +312,29 @@ function createWindow() {
     webPreferences.sandbox = true;
     if (params.partition !== X_PARTITION || !isXUrl(params.src)) event.preventDefault();
   });
+  // Aberto pela inicialização do Windows: fica na bandeja (ou minimizado, se a bandeja estiver desligada)
+  if (startHidden) {
+    try { mainWindow.webContents.setBackgroundThrottling(false); } catch (_) {}
+    if (!bgConfig.keepInTray) mainWindow.once('ready-to-show', () => { mainWindow.showInactive(); mainWindow.minimize(); });
+  }
+  // Com "continuar na bandeja", fechar a janela só esconde: a coleta segue rodando
+  mainWindow.on('close', (event) => {
+    if (quitting || !bgConfig.keepInTray || !tray) return;
+    event.preventDefault();
+    mainWindow.hide();
+    try { mainWindow.webContents.setBackgroundThrottling(false); } catch (_) {}
+    if (!trayHintShown) {
+      trayHintShown = true;
+      try {
+        const pt = currentLocale !== 'en-US';
+        new Notification({ title: 'BRAIN', body: pt ? 'O BRAIN continua aberto na bandeja, perto do relógio, coletando vagas. Para fechar de vez, clique com o botão direito no ícone e escolha Sair.' : 'BRAIN keeps running in the tray, near the clock, collecting jobs. To quit, right-click the icon and choose Quit.', icon: path.join(__dirname, 'icon.png'), silent: true }).show();
+      } catch (_) {}
+    }
+  });
+  // desligar/reiniciar o Windows: fecha de verdade (a bandeja não pode segurar o desligamento)
+  mainWindow.on('query-session-end', () => { quitting = true; });
+  mainWindow.on('session-end', () => { quitting = true; });
+  mainWindow.on('show', () => { try { mainWindow.webContents.setBackgroundThrottling(true); } catch (_) {} });
   mainWindow.on('closed', () => { mainWindow = null; xCloseCollector(); ytCloseCollector(); });
 }
 
@@ -675,6 +701,341 @@ ipcMain.handle('jotas-brain:x-collect', async (event, data) => {
   }
 });
 
+// ── Reddit ──
+// Duas formas de ler, ambas oficiais e no ritmo de uma pessoa:
+//  1) Conta conectada (OAuth "installed app"): a pessoa entra na página do
+//     próprio Reddit; o app recebe só um código e troca por tokens. Os tokens
+//     ficam criptografados pelo Windows (safeStorage) e nunca vão para a tela.
+//     Desde nov/2025 o Reddit exige aprovação para novos Client IDs.
+//  2) Feed RSS público dos subreddits de vagas (sem login), no máximo uma
+//     leitura a cada 15 min. Se o Reddit responder 429/403, o app para e avisa.
+const REDDIT_SUBS = ['forhire', 'HireAnEditor', 'FindVideoEditors', 'VideoEditingRequests', 'CreatorServices', 'YouTubeEditorForHire'];
+const REDDIT_SEARCH = '(hiring OR "looking for" OR "need an editor") (shorts OR "short form" OR tiktok OR clips OR clipper) (gaming OR minecraft OR roblox OR fortnite OR streamer OR twitch OR gameplay)';
+const REDDIT_REDIRECT = 'http://127.0.0.1:65010/brain-reddit-callback';
+const REDDIT_PARTITION = 'persist:jb-reddit';
+let redditAuth = null;      // { clientId, refresh, access, exp, user } — só na memória do processo principal
+let redditBusy = false;
+let redditLoginWin = null;
+function redditUA() {
+  const os = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux';
+  return `${os}:com.jotasbrain.desktop:v${app.getVersion()} (by /u/${redditAuth && redditAuth.user ? redditAuth.user : 'brain_desktop_app'})`;
+}
+function redditFile() { return path.join(app.getPath('userData'), 'reddit-auth.bin'); }
+function redditLoad() {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const raw = fs.readFileSync(redditFile());
+    const d = JSON.parse(safeStorage.decryptString(raw));
+    return d && typeof d.clientId === 'string' && typeof d.refresh === 'string' ? d : null;
+  } catch (_) { return null; }
+}
+// devolve true se ficou salvo de forma criptografada (se o sistema não oferece
+// criptografia, a conexão vale só até fechar o app — nunca gravamos em texto puro)
+function redditSave() {
+  try {
+    if (!redditAuth) { fs.rmSync(redditFile(), { force: true }); return true; }
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    const { clientId, refresh, user } = redditAuth;
+    fs.writeFileSync(redditFile(), safeStorage.encryptString(JSON.stringify({ clientId, refresh, user })));
+    return true;
+  } catch (_) { return false; }
+}
+function redditStatus() {
+  return { connected: !!(redditAuth && redditAuth.refresh), user: redditAuth && redditAuth.user || '', persisted: !!(redditAuth && redditAuth.persisted), encryption: (() => { try { return safeStorage.isEncryptionAvailable(); } catch (_) { return false; } })() };
+}
+async function redditFetch(url, opts = {}, ms = 20000) {
+  const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal, headers: Object.assign({ 'User-Agent': redditUA() }, opts.headers || {}) })); }
+  finally { clearTimeout(tm); }
+}
+async function redditToken(body) {
+  const basic = Buffer.from(redditAuth.clientId + ':').toString('base64');
+  const r = await redditFetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: { Authorization: 'Basic ' + basic, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(body).toString()
+  });
+  let j = null; try { j = await r.json(); } catch (_) {}
+  return { status: r.status, json: j };
+}
+async function redditAccess() {
+  if (!redditAuth || !redditAuth.refresh) return null;
+  if (redditAuth.access && redditAuth.exp > Date.now() + 60e3) return redditAuth.access;
+  const r = await redditToken({ grant_type: 'refresh_token', refresh_token: redditAuth.refresh });
+  if (r.status === 200 && r.json && r.json.access_token) {
+    redditAuth.access = r.json.access_token;
+    redditAuth.exp = Date.now() + (Number(r.json.expires_in) || 3600) * 1000;
+    return redditAuth.access;
+  }
+  if (r.status === 400 || r.status === 401 || (r.json && r.json.error === 'invalid_grant')) { redditAuth = null; redditSave(); }
+  return null;
+}
+// texto de dentro do XML/HTML do feed → texto simples
+function redditDecode(s) {
+  return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch (_) { return ''; } })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => { try { return String.fromCodePoint(parseInt(n, 16)); } catch (_) { return ''; } })
+    .replace(/&amp;/g, '&');
+}
+function redditHtmlToText(html) {
+  return redditDecode(String(html || '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, txt) => { const t = txt.replace(/<[^>]+>/g, '').trim(); return /^\[(link|comments)\]$/.test(t) ? '' : (t && !/^https?:/i.test(t) && /^https?:/i.test(redditDecode(href)) ? t + ' (' + href + ')' : t || href); })
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|li|h\d|div|tr|blockquote)>/gi, '\n').replace(/<li>/gi, '• ')
+    .replace(/<[^>]+>/g, ''))
+    .replace(/ /g, ' ').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function redditClean(p) {
+  const id = String(p.id || '').replace(/^t3_/, '');
+  if (!/^[a-z0-9]{3,12}$/i.test(id)) return null;
+  const title = String(p.title || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (!title) return null;
+  const sub = String(p.sub || '').replace(/^\/?r\//i, '').slice(0, 40);
+  const author = String(p.author || '').replace(/^\/?u\//i, '').slice(0, 40);
+  const url = /^https:\/\/(www\.|old\.)?reddit\.com\//i.test(String(p.url || '')) ? String(p.url).slice(0, 400) : (sub ? `https://www.reddit.com/r/${sub}/comments/${id}/` : '');
+  const created = Number(p.created);
+  return {
+    id, title, sub, author, url,
+    body: String(p.body || '').replace(/\n?\s*submitted by\s+\/u\/[\s\S]*$/i, '').trim().slice(0, 4000),
+    created: Number.isFinite(created) && created > 0 ? created : 0,   // 0 = data desconhecida (não inventamos)
+    flair: String(p.flair || '').slice(0, 40),
+    score: Number.isFinite(p.score) ? p.score : null,
+    comments: Number.isFinite(p.comments) ? p.comments : null,
+    nsfw: !!p.nsfw, removed: !!p.removed
+  };
+}
+// Atom do Reddit: <entry> com id t3_…, título, link, autor, subreddit e o HTML do post
+function redditParseAtom(xml) {
+  const out = [];
+  const tag = (block, name) => { const m = block.match(new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + name + '>', 'i')); return m ? m[1] : ''; };
+  for (const m of String(xml || '').matchAll(/<entry>([\s\S]*?)<\/entry>/gi)) {
+    const e = m[1];
+    const link = (e.match(/<link[^>]*href="([^"]+)"/i) || [])[1] || '';
+    const cat = (e.match(/<category[^>]*term="([^"]+)"/i) || [])[1] || '';
+    const when = Date.parse(redditDecode(tag(e, 'published')) || redditDecode(tag(e, 'updated')));
+    const p = redditClean({
+      id: redditDecode(tag(e, 'id')), title: redditDecode(redditDecode(tag(e, 'title'))), // o título vem escapado duas vezes no feed
+      author: redditDecode(tag(tag(e, 'author'), 'name')), sub: redditDecode(cat), url: redditDecode(link),
+      body: redditHtmlToText(redditDecode(tag(e, 'content'))), created: Number.isFinite(when) ? when : 0
+    });
+    if (p) out.push(p);
+  }
+  return out;
+}
+function redditFromApi(json) {
+  const kids = json && json.data && Array.isArray(json.data.children) ? json.data.children : [];
+  return kids.map(k => k && k.data).filter(Boolean).filter(d => !d.crosspost_parent).map(d => redditClean({
+    id: d.id, title: d.title, sub: d.subreddit, author: d.author, url: 'https://www.reddit.com' + String(d.permalink || ''),
+    body: String(d.selftext || ''), created: Number(d.created_utc) * 1000, flair: d.link_flair_text || '',
+    score: Number(d.score), comments: Number(d.num_comments), nsfw: !!d.over_18,
+    removed: !!(d.removed_by_category || d.selftext === '[removed]' || d.selftext === '[deleted]')
+  })).filter(Boolean);
+}
+async function redditGetRss(url) {
+  const r = await redditFetch(url, { headers: { Accept: 'application/atom+xml, application/xml;q=0.9, */*;q=0.5' } });
+  if (r.status !== 200) return { status: r.status, posts: [] };
+  const xml = (await r.text()).slice(0, 3e6);
+  return { status: 200, posts: redditParseAtom(xml) };
+}
+async function redditGetApi(pathAndQuery) {
+  let tok = await redditAccess(); if (!tok) return { status: 401, posts: [] };
+  let r = await redditFetch('https://oauth.reddit.com' + pathAndQuery, { headers: { Authorization: 'Bearer ' + tok } });
+  if (r.status === 401) { redditAuth.access = null; tok = await redditAccess(); if (!tok) return { status: 401, posts: [] }; r = await redditFetch('https://oauth.reddit.com' + pathAndQuery, { headers: { Authorization: 'Bearer ' + tok } }); }
+  const remaining = Number(r.headers.get('x-ratelimit-remaining'));
+  if (r.status !== 200) return { status: r.status, posts: [], remaining };
+  let j = null; try { j = await r.json(); } catch (_) {}
+  return { status: 200, posts: redditFromApi(j), remaining };
+}
+ipcMain.handle('jotas-brain:reddit-status', async (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { connected: false };
+  return redditStatus();
+});
+ipcMain.handle('jotas-brain:reddit-connect', async (event, data) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { ok: false, error: 'forbidden' };
+  const clientId = String(data && data.clientId || '').trim();
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(clientId)) return { ok: false, error: 'client_id' };
+  if (redditLoginWin && !redditLoginWin.isDestroyed()) { redditLoginWin.focus(); return { ok: false, error: 'busy' }; }
+  const state = crypto.randomBytes(16).toString('hex');
+  const authUrl = 'https://www.reddit.com/api/v1/authorize?' + new URLSearchParams({ client_id: clientId, response_type: 'code', state, redirect_uri: REDDIT_REDIRECT, duration: 'permanent', scope: 'identity read' }).toString();
+  const code = await new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; resolve(v); if (redditLoginWin && !redditLoginWin.isDestroyed()) redditLoginWin.destroy(); redditLoginWin = null; };
+    redditLoginWin = new BrowserWindow({
+      width: 520, height: 760, parent: mainWindow, modal: false, title: 'Reddit', autoHideMenuBar: true, backgroundColor: '#ffffff',
+      webPreferences: { partition: REDDIT_PARTITION, contextIsolation: true, nodeIntegration: false, sandbox: true }
+    });
+    const wc = redditLoginWin.webContents;
+    wc.setWindowOpenHandler(({ url }) => { if (/^https:/i.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+    // o Reddit manda de volta para o endereço de retorno com ?code=…: lemos a URL e fechamos, sem carregar nada
+    const check = (e, url) => {
+      if (!String(url).startsWith(REDDIT_REDIRECT)) return;
+      if (e && e.preventDefault) e.preventDefault();
+      let q; try { q = new URL(url).searchParams; } catch (_) { q = new URLSearchParams(); }
+      if (q.get('state') !== state) return finish({ error: 'state' });
+      if (q.get('error')) return finish({ error: q.get('error') === 'access_denied' ? 'denied' : 'reddit' });
+      finish({ code: q.get('code') || '' });
+    };
+    wc.on('will-redirect', check); wc.on('will-navigate', check);
+    wc.on('did-fail-load', (_e, _c, _d, url) => check(null, url));
+    redditLoginWin.on('closed', () => finish({ error: 'closed' }));
+    redditLoginWin.loadURL(authUrl).catch(() => {});
+  });
+  if (!code.code) return { ok: false, error: code.error || 'closed' };
+  redditAuth = { clientId, refresh: '', access: '', exp: 0, user: '' };
+  try {
+    const r = await redditToken({ grant_type: 'authorization_code', code: code.code, redirect_uri: REDDIT_REDIRECT });
+    if (r.status !== 200 || !r.json || !r.json.refresh_token) { redditAuth = null; return { ok: false, error: r.status === 401 ? 'client_id' : 'token' }; }
+    redditAuth.refresh = r.json.refresh_token; redditAuth.access = r.json.access_token; redditAuth.exp = Date.now() + (Number(r.json.expires_in) || 3600) * 1000;
+    try {
+      const me = await redditFetch('https://oauth.reddit.com/api/v1/me', { headers: { Authorization: 'Bearer ' + redditAuth.access } });
+      const j = me.status === 200 ? await me.json() : null;
+      if (j && typeof j.name === 'string') redditAuth.user = j.name.slice(0, 40);
+    } catch (_) {}
+    redditAuth.persisted = redditSave();
+    return Object.assign({ ok: true }, redditStatus());
+  } catch (_) { redditAuth = null; return { ok: false, error: 'net' }; }
+});
+ipcMain.handle('jotas-brain:reddit-disconnect', async (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { ok: false };
+  const a = redditAuth; redditAuth = null; redditSave();
+  if (a && a.refresh) { // avisa o Reddit para invalidar o token (se falhar, ele expira sozinho)
+    try {
+      await redditFetch('https://www.reddit.com/api/v1/revoke_token', { method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(a.clientId + ':').toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: a.refresh, token_type_hint: 'refresh_token' }).toString() }, 8000);
+    } catch (_) {}
+  }
+  try { await session.fromPartition(REDDIT_PARTITION).clearStorageData(); } catch (_) {}
+  return { ok: true };
+});
+ipcMain.handle('jotas-brain:reddit-collect', async (event, data) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { ok: false, error: 'forbidden' };
+  if (redditBusy) return { ok: false, error: 'busy' };
+  redditBusy = true;
+  const useApi = !!(redditAuth && redditAuth.refresh);
+  if (!useApi && !(data && data.rss)) { redditBusy = false; return { ok: false, error: 'off' }; }
+  const multi = REDDIT_SUBS.join('+');
+  const posts = new Map(); const diag = []; let status = 0;
+  try {
+    const reqs = useApi
+      ? [`/r/${multi}/new?limit=100&raw_json=1`, '/search?' + new URLSearchParams({ q: REDDIT_SEARCH, sort: 'new', t: 'week', limit: '50', type: 'link', raw_json: '1' }).toString()]
+      : [`https://www.reddit.com/r/${multi}/new/.rss?limit=100`, 'https://www.reddit.com/search.rss?' + new URLSearchParams({ q: REDDIT_SEARCH, sort: 'new', t: 'week', limit: '50', type: 'link' }).toString()];
+    for (let i = 0; i < reqs.length; i++) {
+      let r;
+      try { r = useApi ? await redditGetApi(reqs[i]) : await redditGetRss(reqs[i]); }
+      catch (e) { r = { status: 0, posts: [], error: String(e && e.name === 'AbortError' ? 'timeout' : 'net') }; }
+      diag.push({ req: i ? 'search' : 'subs', status: r.status, n: r.posts.length, error: r.error || '' });
+      if (r.status) status = r.status;
+      for (const p of r.posts) if (!p.removed && !p.nsfw) posts.set(p.id, p);
+      if (r.status === 429 || r.status === 403 || r.status === 401) break;   // limite, bloqueio ou conta desconectada: para aqui
+      if (useApi && Number.isFinite(r.remaining) && r.remaining < 5) break;
+      if (i < reqs.length - 1) await wait(2000 + Math.random() * 2000);
+    }
+    const ok = diag.some(d => d.status === 200);
+    return {
+      ok, via: useApi ? 'api' : 'rss', posts: [...posts.values()],
+      rateLimited: diag.some(d => d.status === 429), blocked: diag.some(d => d.status === 403),
+      authLost: useApi && diag.some(d => d.status === 401), net: !ok && diag.every(d => !d.status),
+      status, diag
+    };
+  } finally { redditBusy = false; }
+});
+
+// ── Segundo plano: iniciar com o Windows, bandeja e notificações ──
+// Tudo desligado por padrão. As escolhas ficam num arquivo pequeno na pasta
+// de dados do app, porque o processo principal precisa delas antes de a
+// página carregar (para decidir se abre escondido e o que fazer ao fechar).
+const BG_DEFAULTS = { openAtLogin: false, keepInTray: false };
+let bgConfig = Object.assign({}, BG_DEFAULTS);
+let tray = null;
+let quitting = false;
+let trayHintShown = false;
+const startedHidden = process.argv.includes('--hidden');
+function bgFile() { return path.join(app.getPath('userData'), 'brain-background.json'); }
+function bgLoad() {
+  try { const d = JSON.parse(fs.readFileSync(bgFile(), 'utf8')); bgConfig = { openAtLogin: d.openAtLogin === true, keepInTray: d.keepInTray === true }; }
+  catch (_) { bgConfig = Object.assign({}, BG_DEFAULTS); }
+}
+function bgSave() { try { fs.writeFileSync(bgFile(), JSON.stringify(bgConfig)); } catch (_) {} }
+// no .exe portátil o Electron roda de uma pasta temporária: o atalho de
+// inicialização precisa apontar para o .exe original
+function bgExePath() { return process.env.PORTABLE_EXECUTABLE_FILE || process.execPath; }
+function bgApplyLogin() {
+  if (!app.isPackaged) return false; // em desenvolvimento ("npm start") não mexe na inicialização do Windows
+  try {
+    app.setLoginItemSettings({ openAtLogin: bgConfig.openAtLogin, path: bgExePath(), args: ['--hidden'] });
+    return true;
+  } catch (_) { return false; }
+}
+function bgLoginActive() {
+  if (!app.isPackaged) return false;
+  try { return !!app.getLoginItemSettings({ path: bgExePath(), args: ['--hidden'] }).openAtLogin; } catch (_) { return false; }
+}
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) { createWindow(false); return; }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show(); mainWindow.focus();
+  try { mainWindow.webContents.setBackgroundThrottling(true); } catch (_) {}
+}
+function trayIcon() {
+  const file = path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  let img = nativeImage.createFromPath(file);
+  if (img.isEmpty()) img = nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
+  return process.platform === 'win32' ? img : img.resize({ width: 18, height: 18 });
+}
+function trayUpdate() {
+  if (!bgConfig.keepInTray) { if (tray) { tray.destroy(); tray = null; } return; }
+  if (!tray) {
+    try { tray = new Tray(trayIcon()); } catch (_) { tray = null; return; }
+    tray.setToolTip('BRAIN');
+    tray.on('click', showMainWindow);
+  }
+  const pt = currentLocale !== 'en-US';
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: pt ? 'Abrir o BRAIN' : 'Open BRAIN', click: showMainWindow },
+    { label: pt ? 'Coletar vagas agora' : 'Collect jobs now', click: () => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('jotas-brain:tray-collect'); } },
+    { type: 'separator' },
+    { label: pt ? 'Sair do BRAIN' : 'Quit BRAIN', click: () => { quitting = true; app.quit(); } }
+  ]));
+}
+function bgState() {
+  let notif = false; try { notif = Notification.isSupported(); } catch (_) {}
+  return {
+    openAtLogin: bgConfig.openAtLogin, keepInTray: bgConfig.keepInTray,
+    loginActive: bgLoginActive(), packaged: app.isPackaged, portable: !!process.env.PORTABLE_EXECUTABLE_FILE,
+    platform: process.platform, notifications: notif, startedHidden
+  };
+}
+ipcMain.handle('jotas-brain:bg-get', async (event) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return null;
+  return bgState();
+});
+ipcMain.handle('jotas-brain:bg-set', async (event, data) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || !data || typeof data !== 'object') return null;
+  if (typeof data.keepInTray === 'boolean') bgConfig.keepInTray = data.keepInTray;
+  if (typeof data.openAtLogin === 'boolean') bgConfig.openAtLogin = data.openAtLogin;
+  // iniciar escondido só faz sentido com o ícone na bandeja (e vice-versa: sem bandeja, não inicia sozinho)
+  if (data.openAtLogin === true) bgConfig.keepInTray = true;
+  if (data.keepInTray === false) bgConfig.openAtLogin = false;
+  bgSave(); bgApplyLogin(); trayUpdate();
+  return bgState();
+});
+// Notificação de vaga: só texto curto (título e fonte). Clicar abre o app na vaga.
+ipcMain.handle('jotas-brain:notify', async (event, data) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || !data || typeof data !== 'object') return { ok: false };
+  let supported = false; try { supported = Notification.isSupported(); } catch (_) {}
+  if (!supported) return { ok: false, error: 'unsupported' };
+  const clean = (s, n) => String(s || '').replace(/[\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const jobId = /^[A-Za-z0-9_-]{1,40}$/.test(String(data.jobId || '')) ? String(data.jobId) : '';
+  try {
+    const n = new Notification({ title: clean(data.title, 90) || 'BRAIN', body: clean(data.body, 220), icon: path.join(__dirname, 'icon.png'), silent: !!data.silent });
+    n.on('click', () => {
+      showMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('jotas-brain:open-job', { id: jobId });
+    });
+    n.show();
+    return { ok: true };
+  } catch (_) { return { ok: false, error: 'failed' }; }
+});
+
 // ── IA alternativa: Groq (grátis com chave, compatível com a API da OpenAI) ──
 ipcMain.handle('jotas-brain:ai-groq', async (event, data) => {
   if (!mainWindow || event.sender !== mainWindow.webContents) return { status: 0, json: null };
@@ -694,7 +1055,17 @@ ipcMain.handle('jotas-brain:ai-groq', async (event, data) => {
   } catch (_) { return { status: 0, json: null, net: true }; }
 });
 
+// Uma instância só: abrir o BRAIN de novo (ou pelo atalho) traz a janela que já está rodando na bandeja
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+else app.on('second-instance', () => { if (app.isReady()) showMainWindow(); });
+if (process.platform === 'win32') app.setAppUserModelId('com.jotasbrain.desktop'); // as notificações do Windows precisam disso
+
 app.whenReady().then(() => {
+  if (!gotLock) return;
+  bgLoad();
+  redditAuth = redditLoad();
+  if (redditAuth) redditAuth.persisted = true;
   // Avisa a página quando a pessoa entra ou sai da conta do X.
   // (o X às vezes troca o cookie — remove e cria de novo —, então esperamos
   // um instante e conferimos o estado real antes de avisar)
@@ -717,15 +1088,19 @@ app.whenReady().then(() => {
     session.fromPartition(X_PARTITION).setUserAgent(`Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`);
   } catch (_) {}
   presenceConfig = loadPresenceConfig();
-  createWindow();
+  // só abre escondido se foi o Windows que iniciou (--hidden) e a pessoa ligou essa opção
+  createWindow(startedHidden && bgConfig.openAtLogin);
+  trayUpdate();
   connectDiscord();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(false);
+    else showMainWindow();
   });
 });
 
-app.on('before-quit', stopDiscordPresence);
+app.on('before-quit', () => { quitting = true; stopDiscordPresence(); });
 app.on('window-all-closed', () => {
+  if (bgConfig.keepInTray && tray && !quitting) return; // segue na bandeja
   if (process.platform !== 'darwin') app.quit();
 });
 
